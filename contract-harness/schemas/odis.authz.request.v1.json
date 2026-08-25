@@ -89,13 +89,10 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "sponsor",
+        "originating_principal",
         "agent"
       ],
       "properties": {
-        "sponsor": {
-          "$ref": "#/$defs/Identity"
-        },
         "agent": {
           "$ref": "#/$defs/Identity"
         },
@@ -105,8 +102,12 @@
             "$ref": "#/$defs/Identity"
           },
           "description": "Parent \u2192 sub-agent attenuation chain; ODIS Exec Summary \u00a7Appendix."
+        },
+        "originating_principal": {
+          "$ref": "#/$defs/Identity"
         }
-      }
+      },
+      "description": "Who the call is on behalf of. `originating_principal` is ODIS \u00a76.3's authenticated initiating principal; `agent` is the acting workload."
     },
     "Identity": {
       "type": "object",

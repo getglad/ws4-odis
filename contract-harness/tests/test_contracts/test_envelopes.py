@@ -22,7 +22,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 def _runtime_context() -> RuntimeContext:
     return RuntimeContext(
         correlation_id="11111111-2222-4333-8444-555555555555",
-        sponsor={"id": "fixture-sponsor", "type": "entra_oidc"},
+        originating_principal={"id": "fixture-principal", "type": "entra_oidc"},
         agent={"id": "fixture-agent", "type": "fixture_workload_identity"},
         task_intent="Add label",
         target_resource={"resource_family": "jira", "instance_id": "APF-123"},
@@ -35,7 +35,7 @@ def _authz_request() -> AuthzRequest:
     return AuthzRequest(
         correlation_id="11111111-2222-4333-8444-555555555555",
         subject={
-            "sponsor": {"id": "fixture-sponsor", "type": "entra_oidc"},
+            "originating_principal": {"id": "fixture-principal", "type": "entra_oidc"},
             "agent": {"id": "fixture-agent", "type": "fixture_workload_identity"},
         },
         target_resource={"resource_family": "jira", "instance_id": "APF-123"},

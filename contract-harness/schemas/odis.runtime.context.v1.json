@@ -12,7 +12,7 @@
     "bundle_version",
     "trust_root_id",
     "policy_digest",
-    "sponsor",
+    "originating_principal",
     "agent",
     "task_intent",
     "target_resource",
@@ -50,10 +50,6 @@
       "pattern": "^[0-9a-f]{64}$",
       "description": "SHA-256 hex of the canonicalized policy bundle (the policy_digest binding)."
     },
-    "sponsor": {
-      "$ref": "#/$defs/Identity",
-      "description": "Source: SponsorIdentityProvider (apf-openshell-containment), not the agent payload."
-    },
     "agent": {
       "$ref": "#/$defs/Identity",
       "description": "Source: WorkloadIdentityProvider (apf-openshell-containment), not the agent payload."
@@ -73,6 +69,10 @@
     "phase": {
       "type": "string",
       "const": "odis-harness"
+    },
+    "originating_principal": {
+      "$ref": "#/$defs/Identity",
+      "description": "ODIS \u00a76.3: the authenticated principal whose authority initiated this task. Sourced from the OriginatingPrincipalProvider, never from the agent payload. Distinct from the agent's accountable sponsor or owner, which live on an Agent Registration Record this harness does not implement."
     }
   },
   "$defs": {

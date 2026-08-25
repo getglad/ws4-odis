@@ -36,7 +36,7 @@ from odis_harness.mcp_forwarder.vendor_client import (
 )
 from odis_harness.paths import default_schemas_dir, repo_root
 from odis_harness.substrate.fixtures import (
-    FixtureSponsorIdentityProvider,
+    FixtureOriginatingPrincipalProvider,
     FixtureWorkloadIdentityProvider,
 )
 
@@ -174,7 +174,7 @@ def authz_request(
     """An `AuthzRequest` in the shape `Router._build_authz_request` produces."""
     return AuthzRequest(
         correlation_id=correlation_id,
-        subject={"sponsor": {"id": "s"}, "agent": {"id": "a"}},
+        subject={"originating_principal": {"id": "s"}, "agent": {"id": "a"}},
         target_resource={"resource_family": FAMILY_NAME},
         verb=verb,
         request_body=dict(
@@ -192,7 +192,7 @@ def context_factory() -> RuntimeContextFactory:
     """The fixture-backed identity factory the Router takes."""
     return RuntimeContextFactory(
         workload_identity=FixtureWorkloadIdentityProvider(),
-        sponsor_provider=FixtureSponsorIdentityProvider(),
+        principal_provider=FixtureOriginatingPrincipalProvider(),
     )
 
 

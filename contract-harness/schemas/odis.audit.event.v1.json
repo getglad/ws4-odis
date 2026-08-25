@@ -92,7 +92,7 @@
     },
     "user_id": {
       "type": "string",
-      "description": "Optional sponsor identifier (APF \u00a76.5 MUST in source; OPT in ODIS Contract Harness scaffold)."
+      "description": "Identifier of the originating principal (ODIS-CC-02). Optional in this harness; the Router does not yet authenticate an inbound principal."
     },
     "reason_code": {
       "type": "string",

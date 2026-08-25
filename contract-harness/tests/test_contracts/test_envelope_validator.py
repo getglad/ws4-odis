@@ -34,7 +34,7 @@ def _common_metadata() -> dict[str, object]:
 
 def _runtime_context() -> dict[str, object]:
     return _common_metadata() | {
-        "sponsor": {"id": "fixture-sponsor", "type": "entra_oidc"},
+        "originating_principal": {"id": "fixture-principal", "type": "entra_oidc"},
         "agent": {"id": "fixture-agent", "type": "fixture_workload_identity"},
         "task_intent": "Add a label",
         "target_resource": {"resource_family": "jira", "instance_id": "APF-123"},
@@ -45,7 +45,7 @@ def _runtime_context() -> dict[str, object]:
 def _authz_request() -> dict[str, object]:
     return _common_metadata() | {
         "subject": {
-            "sponsor": {"id": "fixture-sponsor", "type": "entra_oidc"},
+            "originating_principal": {"id": "fixture-principal", "type": "entra_oidc"},
             "agent": {"id": "fixture-agent", "type": "fixture_workload_identity"},
         },
         "target_resource": {"resource_family": "jira", "instance_id": "APF-123"},

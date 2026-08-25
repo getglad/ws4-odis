@@ -59,7 +59,7 @@ class RuntimeContext:
     ENVELOPE_NAME: ClassVar[str] = "odis.runtime.context.v1"
 
     correlation_id: str
-    sponsor: Mapping[str, Any]
+    originating_principal: Mapping[str, Any]
     agent: Mapping[str, Any]
     task_intent: str
     target_resource: Mapping[str, Any]

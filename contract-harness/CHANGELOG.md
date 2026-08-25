@@ -6,6 +6,33 @@ All notable changes to the ODIS Contract Harness are documented here. The format
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking (envelope wire format).** The per-call identity field is `originating_principal`,
+  not `sponsor`, in `odis.runtime.context.v1` and in `odis.authz.request.v1`'s `subject`.
+  ODIS separates three identities: `sponsor_ref` and `owner_ref` (§6.1, who is accountable
+  for an agent and where it belongs, on an Agent Registration Record) from
+  `originating_principal` (§6.3, on whose authority it is acting right now). The harness had
+  one per-call field under the sponsor name doing originating-principal work. The Python API
+  follows: `OriginatingPrincipal`, `OriginatingPrincipalProvider`,
+  `FixtureOriginatingPrincipalProvider`, `RuntimeContextFactory(principal_provider=...)`,
+  `WorkloadIdentityProvider.issue(principal_id=...)`. Both schemas keep
+  `additionalProperties: false`, so a payload carrying `sponsor` is now rejected.
+- Envelopes carry the loaded Authority Grant's `bundle_id`, `bundle_version` and
+  `trust_root_id` instead of fixture constants, so an audit event names the grant that
+  authorized the call. Those three are no longer `const`-pinned in the envelope schemas.
+- Refusal reasons are a typed `ReasonCode`, and the Router audits the evaluator's own
+  reason, so a fail-closed `policy_error` is distinguishable from a policy `deny`.
+
+### Fixed
+
+- `resolve_opa_binary` rejects an unusable `$ODIS_OPA_BIN` instead of returning it, and the
+  schemas directory resolves by probing for `odis.bundle.v1.json` rather than for any
+  directory named `schemas`.
+- `VendorMcp` validates `url` against the schema's `^https?://`.
+- `mise run install` honours `uv.lock`; `mise run test-all` reaches the Vault test slice.
+
+
 ### Added
 
 - Initial contribution to the CoSAI ODIS workstream: a runnable, 100%-open-source

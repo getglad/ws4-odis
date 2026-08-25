@@ -202,7 +202,7 @@ class Router:
         return AuthzRequest(
             correlation_id=runtime_context.correlation_id,
             subject={
-                "sponsor": dict(runtime_context.sponsor),
+                "originating_principal": dict(runtime_context.originating_principal),
                 "agent": dict(runtime_context.agent),
             },
             target_resource={"resource_family": family_name},

@@ -52,7 +52,7 @@ _COMMON: dict[str, object] = {
 _EXAMPLES: dict[str, dict[str, object]] = {
     "odis.runtime.context.v1": _COMMON
     | {
-        "sponsor": {"id": "fixture-sponsor", "type": "entra_oidc"},
+        "originating_principal": {"id": "fixture-principal", "type": "entra_oidc"},
         "agent": {"id": "fixture-agent", "type": "fixture_workload_identity"},
         "task_intent": "Add an 'odis-demo' label to APF-123",
         "target_resource": {"resource_family": "jira", "instance_id": "APF-123"},
@@ -61,7 +61,7 @@ _EXAMPLES: dict[str, dict[str, object]] = {
     "odis.authz.request.v1": _COMMON
     | {
         "subject": {
-            "sponsor": {"id": "fixture-sponsor", "type": "entra_oidc"},
+            "originating_principal": {"id": "fixture-principal", "type": "entra_oidc"},
             "agent": {"id": "fixture-agent", "type": "fixture_workload_identity"},
         },
         "target_resource": {"resource_family": "jira", "instance_id": "APF-123"},
@@ -149,8 +149,9 @@ def test_audit_event_rejects_unknown_event_type(event_type: str) -> None:
 _AUTHZ = "odis.authz.request.v1"
 
 
-def test_authz_request_subject_requires_sponsor_and_agent() -> None:
-    bad = dict(_example(_AUTHZ), subject={"sponsor": {"id": "x", "type": "entra_oidc"}})
+def test_authz_request_subject_requires_principal_and_agent() -> None:
+    principal_only = {"originating_principal": {"id": "x", "type": "entra_oidc"}}
+    bad = dict(_example(_AUTHZ), subject=principal_only)
     with pytest.raises(ValidationError):
         _validator(_schema(_AUTHZ)).validate(bad)
 
@@ -158,7 +159,7 @@ def test_authz_request_subject_requires_sponsor_and_agent() -> None:
 def test_authz_request_subject_accepts_delegation_chain() -> None:
     extended = dict(_example(_AUTHZ))
     extended["subject"] = {
-        "sponsor": {"id": "fixture-sponsor", "type": "entra_oidc"},
+        "originating_principal": {"id": "fixture-principal", "type": "entra_oidc"},
         "agent": {"id": "sub-agent", "type": "fixture_workload_identity"},
         "delegation_chain": [{"id": "parent-agent", "type": "fixture_workload_identity"}],
     }

@@ -39,7 +39,7 @@ from odis_harness.mcp_forwarder.vendor_client import (
 from odis_harness.mcp_forwarder.vendor_http import HttpMcpClient
 from odis_harness.paths import default_schemas_dir
 from odis_harness.substrate.fixtures import (
-    FixtureSponsorIdentityProvider,
+    FixtureOriginatingPrincipalProvider,
     FixtureWorkloadIdentityProvider,
 )
 
@@ -144,7 +144,7 @@ async def build_router_from_bundle(
         policy_evaluator=PolicyEvaluator(opa_binary=opa_binary),
         context_factory=RuntimeContextFactory(
             workload_identity=FixtureWorkloadIdentityProvider(),
-            sponsor_provider=FixtureSponsorIdentityProvider(),
+            principal_provider=FixtureOriginatingPrincipalProvider(),
         ),
         audit=audit,
         vendor_clients=clients,

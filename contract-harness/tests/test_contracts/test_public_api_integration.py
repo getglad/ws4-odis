@@ -68,7 +68,7 @@ def test_tier3_full_chain_at_contracts_layer(
 
     ctx = RuntimeContext(
         correlation_id=correlation_id,
-        sponsor={"id": "fixture-sponsor", "type": "entra_oidc"},
+        originating_principal={"id": "fixture-principal", "type": "entra_oidc"},
         agent={"id": "fixture-agent", "type": "fixture_workload_identity"},
         task_intent="Add an 'odis-demo' label to APF-123",
         target_resource={"resource_family": "jira", "instance_id": "APF-123"},
@@ -79,7 +79,7 @@ def test_tier3_full_chain_at_contracts_layer(
 
     req = AuthzRequest(
         correlation_id=correlation_id,
-        subject={"sponsor": ctx.sponsor, "agent": ctx.agent},
+        subject={"originating_principal": ctx.originating_principal, "agent": ctx.agent},
         target_resource=ctx.target_resource,
         verb="update_issue",
         request_body={"issue_key": "APF-123", "fields": {"labels": ["odis-demo"]}},

@@ -1,4 +1,4 @@
-"""Passport providers — agent runtime + sponsor identity.
+"""Passport providers — agent runtime identity + originating principal.
 
 This package exposes only the identity Protocols and fixtures consumed by the
 Router's `RuntimeContextFactory` (`odis_harness.mcp_forwarder.identity`).
@@ -7,21 +7,21 @@ or the equivalent substrate.
 """
 
 from odis_harness.substrate.fixtures import (
-    FixtureSponsorIdentityProvider,
+    FixtureOriginatingPrincipalProvider,
     FixtureWorkloadIdentityProvider,
 )
 from odis_harness.substrate.identity import (
     AgentRuntimeCredential,
-    SponsorIdentity,
-    SponsorIdentityProvider,
+    OriginatingPrincipal,
+    OriginatingPrincipalProvider,
     WorkloadIdentityProvider,
 )
 
 __all__ = [
     "AgentRuntimeCredential",
-    "FixtureSponsorIdentityProvider",
+    "FixtureOriginatingPrincipalProvider",
     "FixtureWorkloadIdentityProvider",
-    "SponsorIdentity",
-    "SponsorIdentityProvider",
+    "OriginatingPrincipal",
+    "OriginatingPrincipalProvider",
     "WorkloadIdentityProvider",
 ]
