@@ -38,6 +38,7 @@ from odis_harness.mcp_forwarder.vendor_client import (
     ToolResult,
 )
 from odis_harness.mcp_forwarder.vendor_http import HttpMcpClient
+from odis_harness.paths import default_schemas_dir
 from odis_harness.substrate.fixtures import (
     FixtureSponsorIdentityProvider,
     FixtureWorkloadIdentityProvider,
@@ -57,38 +58,33 @@ if TYPE_CHECKING:
 _LOG = structlog.get_logger(__name__)
 
 
-def _schemas_dir() -> Path:
-    """Repo-relative schemas directory; works in development and after install."""
-    candidates = [
-        Path.cwd() / "schemas",
-        Path(__file__).resolve().parents[3] / "schemas",
-    ]
-    for candidate in candidates:
-        if candidate.is_dir():
-            return candidate
-    return candidates[-1]
-
-
 def build_audit(output: TextIO) -> AuditSink:
     """An AuditSink writing schema-validated JSONL events to `output`."""
-    return AuditSink(output=output, validator=EnvelopeValidator(_schemas_dir()))
+    return AuditSink(output=output, validator=EnvelopeValidator(default_schemas_dir()))
 
 
 def resolve_opa_binary(value: str | None) -> str:
     """Resolve the opa binary: explicit value, ODIS_OPA_BIN, PATH, or a sibling
     `opa` one level above the harness directory. Returns "" when none resolves,
-    so callers can fail (or SKIP) with a clear preflight message."""
-    if value:
-        return value
-    env = os.environ.get("ODIS_OPA_BIN")
-    if env:
-        return env
-    on_path = shutil.which("opa")
-    if on_path:
-        return on_path
-    sibling = Path(__file__).resolve().parents[4] / "opa"
-    if sibling.is_file() and os.access(sibling, os.X_OK):
-        return str(sibling)
+    so callers can fail (or SKIP) with a clear preflight message.
+
+    Every candidate must be an executable file to be accepted. A stale or typo'd
+    `ODIS_OPA_BIN` therefore falls through to PATH instead of being handed back: the
+    alternative is worse than a clean "not found", because `PolicyEvaluator` fails
+    closed on a broken binary, so every policy decision silently becomes `deny`.
+    """
+    candidates = [
+        value,
+        os.environ.get("ODIS_OPA_BIN"),
+        shutil.which("opa"),
+        str(Path(__file__).resolve().parents[4] / "opa"),
+    ]
+    for candidate in candidates:
+        if not candidate:
+            continue
+        path = Path(candidate)
+        if path.is_file() and os.access(path, os.X_OK):
+            return str(path)
     return ""
 
 

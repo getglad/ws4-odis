@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
 import yaml
@@ -21,8 +20,10 @@ from jsonschema import Draft202012Validator
 from jsonschema.exceptions import ValidationError
 
 from odis_harness.bundle.types import Bundle, Family, ToolPolicy, VendorMcp
+from odis_harness.paths import default_schemas_dir
 
 if TYPE_CHECKING:
+    from pathlib import Path
     from typing import Any
 
 
@@ -30,19 +31,11 @@ _SCHEMA_FILENAME = "odis.bundle.v1.json"
 
 
 def _default_schema_path() -> Path:
-    """Locate `odis.bundle.v1.json` via the same fallback strategy as the rest of the harness.
+    """Locate `odis.bundle.v1.json` inside the shared `schemas/` directory.
 
-    Tries: $CWD/schemas, then `<package>/../../../schemas` (source-tree layout).
     Callers that need an explicit path pass `schema_path=` to `BundleLoader`.
     """
-    candidates = [
-        Path.cwd() / "schemas" / _SCHEMA_FILENAME,
-        Path(__file__).resolve().parents[3] / "schemas" / _SCHEMA_FILENAME,
-    ]
-    for candidate in candidates:
-        if candidate.is_file():
-            return candidate
-    return candidates[-1]
+    return default_schemas_dir() / _SCHEMA_FILENAME
 
 
 class BundleSignatureInvalid(RuntimeError):  # noqa: N818 - reads clearer than the Error suffix
