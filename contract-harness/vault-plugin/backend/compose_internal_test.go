@@ -16,7 +16,7 @@ func composeTestFamily() grantFamily {
 		Policy: policydsl.PolicySpec{Rules: []policydsl.Rule{
 			{Verb: "update_issue", AllowFields: []string{"labels"}},
 		}},
-		DefaultMode: "strict",
+		DefaultMode: modeStrict,
 	}
 }
 

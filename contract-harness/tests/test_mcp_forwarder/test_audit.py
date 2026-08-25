@@ -13,9 +13,11 @@ from odis_harness.contracts.audit_taxonomy import (
 )
 from odis_harness.mcp_forwarder.audit import (
     ForwardMode,
+    audit_discovery_failed,
     audit_forward,
     audit_refused,
 )
+from odis_harness.mcp_forwarder.reason_codes import ReasonCode
 from tests import factories
 
 if TYPE_CHECKING:
@@ -105,6 +107,20 @@ def test_audit_forward_permissive_shape() -> None:
     extra = event.extra or {}
     assert extra["mode"] == "permissive"
     assert extra["decision_id"] is None
+
+
+def test_audit_discovery_failed_shape() -> None:
+    """The third emitter: a family whose tool catalog could not be fetched."""
+    sink = factories.CapturingAuditSink()
+    audit_discovery_failed(sink, policy_digest="a" * 64, family_name="jira-prod")
+    event = sink.events[0]
+    assert event.event_type == "odis.mcp.discovery_failed"
+    assert event.resource_family == "jira-prod"
+    assert event.reason_code == ReasonCode.VENDOR_UNREACHABLE
+    # Each discovery failure belongs to no agent call, so it carries its own id.
+    uuid.UUID(event.correlation_id)
+    # The underlying exception can hold vendor detail and must not be carried.
+    assert event.extra is None
 
 
 def test_audit_refused_shape() -> None:

@@ -21,6 +21,7 @@ from mcp.types import CallToolResult, ContentBlock, TextContent, Tool
 
 from odis_harness.mcp_forwarder.audit import audit_refused
 from odis_harness.mcp_forwarder.names import UnroutedToolName, parse_tool_name
+from odis_harness.mcp_forwarder.reason_codes import ReasonCode
 from odis_harness.mcp_forwarder.router import McpRefusal
 
 if TYPE_CHECKING:
@@ -70,13 +71,17 @@ async def _call(router: Router, name: str, arguments: Mapping[str, Any]) -> Call
     try:
         family_name, tool = parse_tool_name(name)
     except UnroutedToolName:
-        _audit_unrouted(router, family_name="<unrouted>", tool=name)
-        return _refusal_result("unrouted_family")
+        _audit_handler_refusal(
+            router, family_name="<unrouted>", tool=name, reason_code=ReasonCode.UNROUTED_FAMILY
+        )
+        return _refusal_result(ReasonCode.UNROUTED_FAMILY)
 
     family = router.bundle.family(family_name)
     if family is None:
-        _audit_unrouted(router, family_name=family_name, tool=tool)
-        return _refusal_result("unrouted_family")
+        _audit_handler_refusal(
+            router, family_name=family_name, tool=tool, reason_code=ReasonCode.UNROUTED_FAMILY
+        )
+        return _refusal_result(ReasonCode.UNROUTED_FAMILY)
 
     try:
         result = await router.forward(family_name, family, tool, args)
@@ -86,36 +91,32 @@ async def _call(router: Router, name: str, arguments: Mapping[str, Any]) -> Call
         # An unexpected error (a bug, not a policy refusal) still fails closed
         # AND is audited. The agent gets a generic refusal — never the
         # exception text, which could leak internal detail.
-        _audit_internal_error(router, family_name=family_name, tool=tool)
-        return _refusal_result("internal_error")
+        _audit_handler_refusal(
+            router, family_name=family_name, tool=tool, reason_code=ReasonCode.INTERNAL_ERROR
+        )
+        return _refusal_result(ReasonCode.INTERNAL_ERROR)
     return _success_result(result)
 
 
-def _audit_unrouted(router: Router, *, family_name: str, tool: str) -> None:
-    """Emit the refusal audit for calls rejected before `forward` runs."""
+def _audit_handler_refusal(
+    router: Router, *, family_name: str, tool: str, reason_code: ReasonCode
+) -> None:
+    """Emit the refusal audit for a call rejected at the handler, before `forward`.
+
+    `forward` audits its own refusals; this covers the two it never sees — an
+    unroutable tool name and an unexpected error at the protocol boundary.
+    """
     audit_refused(
         router.audit,
         correlation_id=str(uuid.uuid4()),
         policy_digest=router.bundle.policy_digest,
         family_name=family_name,
         tool=tool,
-        reason_code="unrouted_family",
+        reason_code=reason_code,
     )
 
 
-def _audit_internal_error(router: Router, *, family_name: str, tool: str) -> None:
-    """Emit a refusal audit for an unexpected error at the handler boundary."""
-    audit_refused(
-        router.audit,
-        correlation_id=str(uuid.uuid4()),
-        policy_digest=router.bundle.policy_digest,
-        family_name=family_name,
-        tool=tool,
-        reason_code="internal_error",
-    )
-
-
-def _refusal_result(reason_code: str) -> CallToolResult:
+def _refusal_result(reason_code: ReasonCode) -> CallToolResult:
     return CallToolResult(
         content=[TextContent(type="text", text=f"refused: {reason_code}")],
         isError=True,

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from odis_harness.mcp_forwarder.reason_codes import ReasonCode
 from odis_harness.mcp_forwarder.router import McpRefusal
 from tests import factories
 
@@ -204,3 +205,21 @@ async def test_example_bundle_jira_prod_denies_other_project(opa_binary: str) ->
         await router.forward("jira-prod", family, "update_issue", _OUTSIDE_PROJECT_ARGS)
     assert exc.value.reason_code == "deny"
     assert vendor.calls == []
+
+
+async def test_forward_audits_the_evaluators_reason_not_a_blanket_deny(
+    opa_binary: str,
+) -> None:
+    """A fail-closed policy error must reach the audit trail as `policy_error`.
+
+    Regression guard: the Router used to refuse every non-allow decision as `deny`,
+    which made "OPA was unreachable" indistinguishable from "the policy refused".
+    """
+    del opa_binary  # this test deliberately supplies a broken binary
+    audit = factories.CapturingAuditSink()
+    family = factories.family()
+    router = factories.router(family, opa_binary="/nonexistent/opa", audit=audit)
+    with pytest.raises(McpRefusal) as exc:
+        await router.forward("jira-prod", family, "update_issue", _ALLOWED_ARGS)
+    assert exc.value.reason_code == ReasonCode.POLICY_ERROR
+    assert audit.events[0].reason_code == ReasonCode.POLICY_ERROR

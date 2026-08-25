@@ -20,7 +20,7 @@ func assembleTestBundle() apfbundle.Bundle {
 					URL:        "https://jira-prod-mcp.internal:8443/",
 				},
 				Policy:      "package odis_policy",
-				DefaultMode: "strict",
+				DefaultMode: modeStrict,
 			},
 		},
 	}

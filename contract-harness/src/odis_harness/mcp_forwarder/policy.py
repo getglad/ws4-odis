@@ -15,9 +15,11 @@ from __future__ import annotations
 import tempfile
 import uuid
 from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from odis_harness.mcp_forwarder.reason_codes import ReasonCode
 from odis_harness.rpv.opa import OpaEvalError, opa_eval
 
 if TYPE_CHECKING:
@@ -26,6 +28,18 @@ if TYPE_CHECKING:
 
     from odis_harness.bundle import Family
     from odis_harness.contracts import AuthzRequest
+
+
+class Decision(StrEnum):
+    """The decision values the Router acts on.
+
+    ODIS §6.4 specifies `permit` | `deny` for the policy engine's return; the Rego in
+    this harness emits `allow`, and the spec does not state whether those values are
+    normative, so the divergence is deliberate and unresolved rather than an oversight.
+    """
+
+    ALLOW = "allow"
+    DENY = "deny"
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
@@ -37,9 +51,13 @@ class PolicyDecision:
     model).
     """
 
-    decision: str  # "allow" | "deny" | (other Rego-produced values → treated as refusal)
+    #: Whatever the Rego emitted, verbatim — `Decision` names the two values the
+    #: Router acts on, but a policy may return others (`require_review`, say), and
+    #: anything that is not `Decision.ALLOW` is a refusal.
+    decision: str
     obligations: Mapping[str, Any]
-    reason_code: str
+    #: Why, in the Router's vocabulary — audited verbatim on a refusal.
+    reason_code: ReasonCode
     decision_id: str
 
 
@@ -72,17 +90,17 @@ class PolicyEvaluator:
             # binary, or unparseable output all deny rather than crash the
             # Router's forward path.
             return PolicyDecision(
-                decision="deny",
+                decision=Decision.DENY,
                 obligations={},
-                reason_code="policy_error",
+                reason_code=ReasonCode.POLICY_ERROR,
                 decision_id=decision_id,
             )
 
         if not isinstance(result, dict):
             return PolicyDecision(
-                decision="deny",
+                decision=Decision.DENY,
                 obligations={},
-                reason_code="invalid_rego_result",
+                reason_code=ReasonCode.INVALID_REGO_RESULT,
                 decision_id=decision_id,
             )
         # `obligations` must be an object: it is handed to the action-limit
@@ -92,17 +110,19 @@ class PolicyEvaluator:
         obligations = result.get("obligations", {})
         if not isinstance(obligations, dict):
             return PolicyDecision(
-                decision="deny",
+                decision=Decision.DENY,
                 obligations={},
-                reason_code="invalid_rego_result",
+                reason_code=ReasonCode.INVALID_REGO_RESULT,
                 decision_id=decision_id,
             )
         # A well-formed Rego `decision` is an object; a non-`allow` value (or a
         # wrong-typed one) still fails closed via the Router's `!= "allow"` check.
         return PolicyDecision(
-            decision=result.get("decision", "deny"),
+            decision=result.get("decision", Decision.DENY),
             obligations=obligations,
-            reason_code=result.get("reason_code", ""),
+            # A Rego-supplied reason string is not in our vocabulary, so a refusal
+            # from a well-formed policy audits as DENY.
+            reason_code=ReasonCode.DENY,
             decision_id=decision_id,
         )
 
@@ -122,4 +142,4 @@ def _request_to_opa_input(request: AuthzRequest) -> dict[str, Any]:
     }
 
 
-__all__ = ["PolicyDecision", "PolicyEvaluator"]
+__all__ = ["Decision", "PolicyDecision", "PolicyEvaluator"]

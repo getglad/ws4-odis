@@ -9,21 +9,26 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from functools import cached_property
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, get_args
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping
     from typing import Any
 
-#: `endpoint_id` and family-name pattern, matched against the JSON Schema
-#: regex in `schemas/odis.bundle.v1.json`. Lowercase kebab.
-_ENDPOINT_ID_PATTERN = re.compile(r"^[a-z][a-z0-9-]*$")
-
-#: Allowed values for `Family.default_mode`. Schema-enforced; the dataclass
-#: re-validates so Python construction (e.g. tests) fails fast.
-_DEFAULT_MODES: frozenset[str] = frozenset({"strict", "permissive"})
+#: `endpoint_id` and family-name pattern. Lowercase kebab. The authority is the
+#: `pattern` in `schemas/odis.bundle.v1.json`; this and `mcp_forwarder.names` each
+#: restate it rather than sharing a constant, because `names` is a leaf that must not
+#: import this package (doing so drags httpx and cryptography in via `bundle/__init__`).
+#: All three must agree: a family name the schema accepts but `parse_tool_name` rejects
+#: would be advertised by discovery and then be permanently unroutable.
+_NAME_PATTERN = re.compile(r"^[a-z][a-z0-9-]*$")
 
 DefaultMode = Literal["strict", "permissive"]
+
+#: Allowed values for `Family.default_mode`, derived from `DefaultMode` so the closed
+#: set is written once. Schema-enforced too; the dataclass re-validates so Python
+#: construction (e.g. tests, `build_router_from_bundle`) fails fast.
+_DEFAULT_MODES: frozenset[str] = frozenset(get_args(DefaultMode))
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
@@ -34,10 +39,8 @@ class VendorMcp:
     url: str
 
     def __post_init__(self) -> None:
-        if not _ENDPOINT_ID_PATTERN.fullmatch(self.endpoint_id):
-            message = (
-                f"endpoint_id {self.endpoint_id!r} does not match {_ENDPOINT_ID_PATTERN.pattern!r}"
-            )
+        if not _NAME_PATTERN.fullmatch(self.endpoint_id):
+            message = f"endpoint_id {self.endpoint_id!r} does not match {_NAME_PATTERN.pattern!r}"
             raise ValueError(message)
 
 
@@ -101,8 +104,8 @@ class Bundle:
         # this; re-validate here so the programmatic `build_router_from_bundle`
         # path (a documented seam) fails fast instead of shipping dead tools.
         for name in self.families:
-            if not _ENDPOINT_ID_PATTERN.fullmatch(name):
-                message = f"family name {name!r} does not match {_ENDPOINT_ID_PATTERN.pattern!r}"
+            if not _NAME_PATTERN.fullmatch(name):
+                message = f"family name {name!r} does not match {_NAME_PATTERN.pattern!r}"
                 raise ValueError(message)
 
     def family(self, name: str) -> Family | None:

@@ -56,7 +56,7 @@ func storeMapping(t *testing.T, s logical.Storage) {
 					Policy: policydsl.PolicySpec{Rules: []policydsl.Rule{
 						{Verb: "update_issue", AllowFields: []string{"labels"}},
 					}},
-					DefaultMode: "strict",
+					DefaultMode: modeStrict,
 				},
 			},
 		},
@@ -180,7 +180,7 @@ func storeCollidingMappings(t *testing.T, s logical.Storage) {
 	fam := grantFamily{
 		VendorMCP:   apfbundle.VendorMCP{EndpointID: "e", URL: "https://v/"},
 		Policy:      policydsl.PolicySpec{Rules: []policydsl.Rule{{Verb: "update_issue", AllowFields: []string{"labels"}}}},
-		DefaultMode: "strict",
+		DefaultMode: modeStrict,
 	}
 	for _, name := range []string{"a", "b"} {
 		entry := mappingEntry{

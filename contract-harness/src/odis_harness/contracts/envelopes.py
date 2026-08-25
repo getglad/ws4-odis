@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 from odis_harness.contracts.constants import (
@@ -31,14 +32,22 @@ if TYPE_CHECKING:
     from odis_harness.contracts.validator import EnvelopeValidator
 
 
-# -- Sub-records ------------------------------------------------------------
+def now_iso() -> str:
+    """Current UTC time in the `Z`-suffixed form the envelope schemas require.
 
-
-# -- Base mixin --------------------------------------------------------------
+    The three envelope schemas declare `format: date-time` for `issued_at` and
+    `timestamp`; every emitter needs the same rendering, so it lives here rather than
+    beside each caller.
+    """
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _to_dict(instance: DataclassInstance) -> dict[str, Any]:
-    """`dataclasses.asdict`, recursing through nested dataclass fields."""
+    """The envelope as a JSON-serializable dict.
+
+    Every envelope field is a scalar or a plain `Mapping`/`list`, so `asdict` has
+    nothing nested to recurse into.
+    """
     return dataclasses.asdict(instance)
 
 
@@ -132,18 +141,14 @@ class AuditEvent:
 
     def to_dict(self) -> dict[str, Any]:
         d = _to_dict(self)
-        # Drop all optional fields when unset, so the serialized event matches
-        # the canonical schema example shape (omitted-when-None).
-        for k in (
-            "apf_semantic_enforcement",
-            "user_id",
-            "reason_code",
-            "result_class",
-            "resource_family",
-            "extra",
-        ):
-            if d.get(k) is None:
-                d.pop(k, None)
+        # Drop every `= None`-defaulted field when unset, so the serialized event
+        # matches the canonical schema example shape. Derived from the dataclass rather
+        # than a restated key list. Note this covers `default=None` only: a field using
+        # `default_factory` has `Field.default is MISSING`, so it would need its own
+        # rule (as `AuthzRequest.active_verdicts` has).
+        for f in dataclasses.fields(self):
+            if f.default is None and d.get(f.name) is None:
+                d.pop(f.name, None)
         return d
 
     @classmethod
@@ -156,4 +161,5 @@ __all__ = [
     "AuditEvent",
     "AuthzRequest",
     "RuntimeContext",
+    "now_iso",
 ]

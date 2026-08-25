@@ -12,9 +12,7 @@ import asyncio
 import os
 import shutil
 import sys
-import uuid
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -25,7 +23,8 @@ from odis_harness.bundle import (
     BundleLoader,
     FixtureSignatureVerifier,
 )
-from odis_harness.contracts import AuditEvent, EnvelopeValidator
+from odis_harness.contracts import EnvelopeValidator
+from odis_harness.mcp_forwarder.audit import audit_discovery_failed
 from odis_harness.mcp_forwarder.discovery import DiscoveryCache
 from odis_harness.mcp_forwarder.identity import RuntimeContextFactory
 from odis_harness.mcp_forwarder.policy import PolicyEvaluator
@@ -201,17 +200,7 @@ async def _establish_one(name: str, client: SupportsSessionEstablish) -> None:
 def _make_discovery_failed_cb(audit: AuditSink, bundle: Bundle) -> Callable[[str, Exception], None]:
     def _cb(family_name: str, error: Exception) -> None:
         del error  # not echoed into audit (could carry vendor detail)
-        audit.emit(
-            AuditEvent(
-                correlation_id=str(uuid.uuid4()),
-                event_id=str(uuid.uuid4()),
-                timestamp=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-                event_type="odis.mcp.discovery_failed",
-                policy_digest=bundle.policy_digest,
-                resource_family=family_name,
-                reason_code="vendor_unreachable",
-            )
-        )
+        audit_discovery_failed(audit, policy_digest=bundle.policy_digest, family_name=family_name)
 
     return _cb
 

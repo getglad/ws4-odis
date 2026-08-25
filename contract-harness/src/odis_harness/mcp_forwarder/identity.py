@@ -16,10 +16,9 @@ gate, not the agent.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from odis_harness.contracts import RuntimeContext
+from odis_harness.contracts import RuntimeContext, now_iso
 
 if TYPE_CHECKING:
     from odis_harness.substrate.identity import (
@@ -64,13 +63,9 @@ class RuntimeContextFactory:
             agent={"id": credential.agent_id, "type": _AGENT_TYPE},
             task_intent=task_intent or f"invoke {resource_family}.{tool}",
             target_resource={"resource_family": resource_family},
-            issued_at=_now_iso(),
+            issued_at=now_iso(),
             policy_digest=policy_digest,
         )
-
-
-def _now_iso() -> str:
-    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
 __all__ = ["RuntimeContextFactory"]

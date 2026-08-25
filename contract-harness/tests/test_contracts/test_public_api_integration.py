@@ -48,6 +48,7 @@ def test_public_api_covers_expected_surface() -> None:
         "EnvelopeValidator",
         "UnknownEnvelopeError",
         "is_valid_event_type",
+        "now_iso",
     }
     assert set(contracts.__all__) == expected
     for name in contracts.__all__:

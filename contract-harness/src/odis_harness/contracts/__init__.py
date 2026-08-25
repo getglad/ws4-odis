@@ -21,6 +21,7 @@ from odis_harness.contracts.envelopes import (
     AuditEvent,
     AuthzRequest,
     RuntimeContext,
+    now_iso,
 )
 from odis_harness.contracts.validator import (
     EnvelopeValidationError,
@@ -43,4 +44,5 @@ __all__ = [
     "RuntimeContext",
     "UnknownEnvelopeError",
     "is_valid_event_type",
+    "now_iso",
 ]

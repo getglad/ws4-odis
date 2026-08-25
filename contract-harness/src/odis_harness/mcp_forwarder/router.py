@@ -24,6 +24,8 @@ from odis_harness.mcp_forwarder.action_limits import (
     enforce_action_limits,
 )
 from odis_harness.mcp_forwarder.audit import audit_forward, audit_refused
+from odis_harness.mcp_forwarder.policy import Decision
+from odis_harness.mcp_forwarder.reason_codes import ReasonCode
 from odis_harness.mcp_forwarder.vendor_client import VendorUnreachable
 
 if TYPE_CHECKING:
@@ -52,7 +54,7 @@ class McpRefusal(Exception):  # noqa: N818 - "Refusal" reads clearer than "Refus
     is raised.
     """
 
-    def __init__(self, reason_code: str) -> None:
+    def __init__(self, reason_code: ReasonCode) -> None:
         self.reason_code = reason_code
         super().__init__(reason_code)
 
@@ -109,14 +111,17 @@ class Router:
                 return await self._permissive_forward(
                     family_name, family, tool, arguments, runtime_context
                 )
-            self._refuse(runtime_context, family_name, tool, "unpoliced_tool")
+            self._refuse(runtime_context, family_name, tool, ReasonCode.UNPOLICED_TOOL)
 
         # Policy path. `evaluate` shells out to OPA (blocking subprocess);
         # run it off the event loop so concurrent forwards aren't serialized.
         request = self._build_authz_request(runtime_context, family_name, tool, arguments)
         decision = await asyncio.to_thread(self.policy_evaluator.evaluate, family, request)
-        if decision.decision != "allow":
-            self._refuse(runtime_context, family_name, tool, "deny")
+        if decision.decision != Decision.ALLOW:
+            # Carry the evaluator's own reason: a fail-closed `policy_error` (OPA
+            # unreachable) must not read as `deny` (the policy refused), which are the
+            # two cases an operator most needs to tell apart.
+            self._refuse(runtime_context, family_name, tool, decision.reason_code)
 
         # Action-limit enforcement (scoped authority from the decision). Empty
         # declared action limits mean "policy-gated, no post-policy argument
@@ -126,13 +131,13 @@ class Router:
             try:
                 enforce_action_limits(tool, arguments, decision.obligations)
             except ActionLimitViolation:
-                self._refuse(runtime_context, family_name, tool, "obligation_violation")
+                self._refuse(runtime_context, family_name, tool, ReasonCode.OBLIGATION_VIOLATION)
             except NotImplementedError:
                 # The bundle declared this tool as policed, but the harness has no
                 # action-limit enforcer for it. Fail closed (deny) rather than
                 # crash or passthrough — the author asked for a constraint we
                 # cannot satisfy.
-                self._refuse(runtime_context, family_name, tool, "unenforceable_tool")
+                self._refuse(runtime_context, family_name, tool, ReasonCode.UNENFORCEABLE_TOOL)
 
         result = await self._call_vendor(family_name, tool, arguments, runtime_context)
         audit_forward(
@@ -185,7 +190,7 @@ class Router:
         try:
             return await self.vendor_clients[family_name].call_tool(tool, arguments)
         except VendorUnreachable:
-            self._refuse(runtime_context, family_name, tool, "vendor_unreachable")
+            self._refuse(runtime_context, family_name, tool, ReasonCode.VENDOR_UNREACHABLE)
 
     def _build_authz_request(
         self,
@@ -213,7 +218,7 @@ class Router:
         runtime_context: RuntimeContext,
         family_name: str,
         tool: str,
-        reason_code: str,
+        reason_code: ReasonCode,
     ) -> NoReturn:
         audit_refused(
             self.audit,

@@ -16,6 +16,7 @@ from odis_harness.mcp_forwarder.action_limits import (
 )
 from odis_harness.mcp_forwarder.audit import (
     ForwardMode,
+    audit_discovery_failed,
     audit_forward,
     audit_refused,
 )
@@ -25,7 +26,8 @@ from odis_harness.mcp_forwarder.discovery import (
 )
 from odis_harness.mcp_forwarder.identity import RuntimeContextFactory
 from odis_harness.mcp_forwarder.names import UnroutedToolName, parse_tool_name
-from odis_harness.mcp_forwarder.policy import PolicyDecision, PolicyEvaluator
+from odis_harness.mcp_forwarder.policy import Decision, PolicyDecision, PolicyEvaluator
+from odis_harness.mcp_forwarder.reason_codes import ReasonCode
 from odis_harness.mcp_forwarder.router import (
     DEFAULT_AGENT_ID,
     McpRefusal,
@@ -45,6 +47,7 @@ from odis_harness.mcp_forwarder.vendor_http import HttpMcpClient
 __all__ = [
     "DEFAULT_AGENT_ID",
     "ActionLimitViolation",
+    "Decision",
     "DiscoveryCache",
     "DiscoveryFailureCallback",
     "ForwardMode",
@@ -54,12 +57,14 @@ __all__ = [
     "McpRefusal",
     "PolicyDecision",
     "PolicyEvaluator",
+    "ReasonCode",
     "Router",
     "RuntimeContextFactory",
     "ToolDescriptor",
     "ToolResult",
     "UnroutedToolName",
     "VendorUnreachable",
+    "audit_discovery_failed",
     "audit_forward",
     "audit_refused",
     "build_asgi_app",

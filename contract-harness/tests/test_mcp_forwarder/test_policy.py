@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from odis_harness.mcp_forwarder.policy import PolicyEvaluator
+from odis_harness.mcp_forwarder.reason_codes import ReasonCode
 from tests import factories
 
 if TYPE_CHECKING:
@@ -104,3 +105,15 @@ def test_evaluate_missing_opa_binary_fails_closed_to_deny() -> None:
     decision = evaluator.evaluate(_family(_ALLOW_LABELS_ON_APF), _request())
     assert decision.decision == "deny"
     assert decision.reason_code == "policy_error"
+
+
+def test_missing_opa_binary_reports_policy_error_not_deny() -> None:
+    """A fail-closed decision must be distinguishable from a policy refusal.
+
+    Both deny the call, but "the PDP was unreachable" and "the policy said no" are the
+    two cases an operator most needs to tell apart in the audit trail.
+    """
+    evaluator = PolicyEvaluator(opa_binary="/nonexistent/opa")
+    decision = evaluator.evaluate(_family("package odis_policy\n"), _request())
+    assert decision.decision == "deny"
+    assert decision.reason_code == ReasonCode.POLICY_ERROR
