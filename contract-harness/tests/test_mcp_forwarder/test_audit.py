@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from odis_harness.bundle import Family, ToolPolicy, VendorMcp
 from odis_harness.contracts.audit_taxonomy import (
     ODIS_EXTENSION_TYPES,
     is_valid_event_type,
@@ -17,6 +16,7 @@ from odis_harness.mcp_forwarder.audit import (
     audit_forward,
     audit_refused,
 )
+from tests import factories
 
 if TYPE_CHECKING:
     from odis_harness.contracts import AuditEvent
@@ -45,40 +45,21 @@ def test_mcp_audit_events_are_registered(event_type: str) -> None:
 # -- audit_forward / audit_refused helpers -----------------------------------
 
 
-def _family() -> Family:
-    return Family(
-        vendor_mcp=VendorMcp(
-            endpoint_id="jira-prod-mcp-v1",
-            url="https://jira-prod-mcp.internal:8443/",
-        ),
-        policy="package odis_policy\n",
-        tools={
-            "update_issue": ToolPolicy(action_limits={"allowed_fields": ["labels"]}),
-        },
-        default_mode="strict",
-    )
-
-
-class _CapturingAuditSink:
-    """Minimal stand-in for the production AuditSink — captures emitted events."""
-
-    def __init__(self) -> None:
-        self.events: list[AuditEvent] = []
-
-    def emit(self, event: AuditEvent) -> None:
-        self.events.append(event)
+#: A vendor URL with a host:port the audit event must never carry.
+_VENDOR_URL = "https://jira-prod-mcp.internal:8443/"
+_CORRELATION_ID = "00000000-0000-4000-8000-000000000001"
 
 
 def _forward_event(
     *, mode: ForwardMode = "policy_allow", decision_id: str | None = "dec-1"
 ) -> AuditEvent:
-    sink = _CapturingAuditSink()
+    sink = factories.CapturingAuditSink()
     audit_forward(
-        sink,  # type: ignore[arg-type]
-        correlation_id="00000000-0000-4000-8000-000000000001",
+        sink,
+        correlation_id=_CORRELATION_ID,
         policy_digest="a" * 64,
         family_name="jira-prod",
-        family=_family(),
+        family=factories.family(url=_VENDOR_URL, policy="package odis_policy\n"),
         tool="update_issue",
         decision_id=decision_id,
         mode=mode,
@@ -87,10 +68,10 @@ def _forward_event(
 
 
 def _refused_event(*, reason_code: str = "deny") -> AuditEvent:
-    sink = _CapturingAuditSink()
+    sink = factories.CapturingAuditSink()
     audit_refused(
-        sink,  # type: ignore[arg-type]
-        correlation_id="00000000-0000-4000-8000-000000000001",
+        sink,
+        correlation_id=_CORRELATION_ID,
         policy_digest="a" * 64,
         family_name="jira-prod",
         tool="update_issue",
@@ -104,6 +85,8 @@ def test_audit_forward_shape_and_redaction() -> None:
     extra = event.extra or {}
     assert event.event_type == "odis.mcp.forward"
     assert event.resource_family == "jira-prod"
+    # Compared exactly, not key-by-key: the audit event is a published contract, so a
+    # new or renamed key has to be a deliberate edit here rather than a silent addition.
     assert extra == {
         "tool": "update_issue",
         "vendor_endpoint_id": "jira-prod-mcp-v1",

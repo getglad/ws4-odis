@@ -11,7 +11,6 @@ decision is the internal `PolicyDecision`, not a wire envelope).
 from __future__ import annotations
 
 import uuid
-from pathlib import Path
 
 import pytest
 
@@ -25,13 +24,7 @@ from odis_harness.contracts import (
     is_valid_event_type,
 )
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
 _DIGEST = "a" * 64
-
-
-@pytest.fixture(scope="module")
-def envelope_validator() -> EnvelopeValidator:
-    return EnvelopeValidator(_REPO_ROOT / "schemas")
 
 
 # -- Public API surface ------------------------------------------------------

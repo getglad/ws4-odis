@@ -7,7 +7,6 @@ a real vendor MCP server (a trivial SDK Server) bound to a loopback port.
 from __future__ import annotations
 
 import asyncio
-import socket
 from typing import Self
 
 import httpx
@@ -19,14 +18,9 @@ from mcp.types import TextContent, Tool
 from odis_harness.mcp_forwarder.transports import MCP_MOUNT_PATH, build_asgi_app
 from odis_harness.mcp_forwarder.vendor_client import VendorUnreachable
 from odis_harness.mcp_forwarder.vendor_http import HttpMcpClient
+from tests import factories
 
 pytestmark = pytest.mark.enable_socket
-
-
-def _free_port() -> int:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(("127.0.0.1", 0))
-        return int(s.getsockname()[1])
 
 
 def _vendor_server() -> Server:
@@ -69,7 +63,7 @@ class _RunningVendor:
     """
 
     def __init__(self, captured: list[dict[str, str]] | None = None) -> None:
-        self.port = _free_port()
+        self.port = factories.free_port()
         app = build_asgi_app(_vendor_server())
         if captured is not None:
             app = _capturing_app(app, captured)
@@ -122,13 +116,13 @@ async def test_http_client_call_tool_against_real_vendor() -> None:
 
 async def test_http_client_list_tools_unreachable_raises_vendor_unreachable() -> None:
     # Nothing listening on this port.
-    client = HttpMcpClient(url=f"http://127.0.0.1:{_free_port()}/mcp")
+    client = HttpMcpClient(url=f"http://127.0.0.1:{factories.free_port()}/mcp")
     with pytest.raises(VendorUnreachable):
         await client.list_tools()
 
 
 async def test_http_client_call_tool_unreachable_raises_vendor_unreachable() -> None:
-    client = HttpMcpClient(url=f"http://127.0.0.1:{_free_port()}/mcp")
+    client = HttpMcpClient(url=f"http://127.0.0.1:{factories.free_port()}/mcp")
     with pytest.raises(VendorUnreachable):
         await client.call_tool("update_issue", {"issue_key": "APF-1"})
 

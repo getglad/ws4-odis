@@ -19,7 +19,6 @@ import pytest
 from odis_harness.bundle.loader import BundleLoader
 from odis_harness.bundle.vault_verifier import VaultTransitSignatureVerifier
 from odis_harness.cli import SignedBundleSource, build_router_signed
-from odis_harness.contracts.envelopes import AuthzRequest
 from odis_harness.mcp_forwarder.policy import PolicyEvaluator
 from odis_harness.mcp_forwarder.vendor_client import (
     InMemoryMcpClient,
@@ -27,13 +26,14 @@ from odis_harness.mcp_forwarder.vendor_client import (
     ToolDescriptor,
     ToolResult,
 )
-from tests.factories import audit_sink, in_memory_vendor_from_family
+from tests import factories
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from odis_harness.bundle import Bundle, Family
     from odis_harness.bundle.vault_client import VaultBundleClient
+    from odis_harness.contracts.envelopes import AuthzRequest
     from odis_harness.vault.dev import DevVaultContext
 
 pytestmark = [
@@ -70,15 +70,8 @@ _GITLAB_READONLY_TOOLS = [
 
 
 def _request(*, issue_key: str) -> AuthzRequest:
-    return AuthzRequest(
-        correlation_id="11111111-2222-4333-8444-555555555555",
-        subject={"sponsor": {"id": "s"}, "agent": {"id": "a"}},
-        target_resource={"resource_family": "jira-prod"},
-        verb="update_issue",
+    return factories.authz_request(
         request_body={"issue_key": issue_key, "fields": {"labels": ["odis-demo"]}},
-        task_intent="add label",
-        issued_at="2026-05-28T00:00:00Z",
-        policy_digest="a" * 64,
     )
 
 
@@ -201,8 +194,8 @@ async def test_serve_signed_builds_router_from_vault(
     router = await build_router_signed(
         source=source,
         opa_binary=opa_binary,
-        audit=audit_sink(),
-        vendor_client_factory=in_memory_vendor_from_family,
+        audit=factories.audit_sink(),
+        vendor_client_factory=factories.in_memory_vendor_from_family,
     )
     assert router.bundle.bundle_id == "odis-fixture-bundle"
     assert router.bundle.family("jira-prod") is not None
@@ -225,7 +218,7 @@ async def test_vault_issued_gitlab_readonly_bundle_governs_read_only_tool(
     router = await build_router_signed(
         source=source,
         opa_binary=opa_binary,
-        audit=audit_sink(),
+        audit=factories.audit_sink(),
         vendor_client_factory=_vault_union_vendor_factory(clients_by_endpoint),
     )
 

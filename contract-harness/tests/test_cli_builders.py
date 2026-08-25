@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from odis_harness.bundle import Bundle, Family, ToolPolicy, VendorMcp
 from odis_harness.cli.builders import (
     build_router_from_bundle,
     establish_leg2_sessions,
@@ -27,34 +26,29 @@ from odis_harness.mcp_forwarder.vendor_client import (
     ToolDescriptor,
 )
 from odis_harness.mcp_forwarder.vendor_http import HttpMcpClient
+from tests import factories
 from tests.factories import audit_sink
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
     from typing import Any
 
+    from odis_harness.bundle import Bundle, Family
+
 # build_router_from_bundle drives async discovery; the event loop touches sockets.
 pytestmark = pytest.mark.enable_socket
 
 
 def _family(endpoint_id: str) -> Family:
-    return Family(
-        vendor_mcp=VendorMcp(endpoint_id=endpoint_id, url="https://example.invalid/"),
+    return factories.family(
+        endpoint_id=endpoint_id,
+        url="https://example.invalid/",
         policy="package odis_policy\n",
-        tools={
-            "update_issue": ToolPolicy(action_limits={"allowed_fields": ["labels"]}),
-        },
-        default_mode="strict",
     )
 
 
 def _bundle(families: dict[str, Family]) -> Bundle:
-    return Bundle(
-        bundle_id="b",
-        bundle_version="0.1.0",
-        trust_root_id="r",
-        families=families,
-    )
+    return factories.bundle(families=families)
 
 
 class _EstablishingClient:

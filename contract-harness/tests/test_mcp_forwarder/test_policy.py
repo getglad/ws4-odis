@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 
-from odis_harness.bundle import Family, ToolPolicy, VendorMcp
-from odis_harness.contracts import AuthzRequest
 from odis_harness.mcp_forwarder.policy import PolicyEvaluator
+from tests import factories
+
+if TYPE_CHECKING:
+    from odis_harness.bundle import Family
+    from odis_harness.contracts import AuthzRequest
 
 pytestmark = pytest.mark.requires_opa
 
@@ -38,26 +43,13 @@ this is not valid rego !!! {{{
 
 
 def _family(policy: str) -> Family:
-    return Family(
-        vendor_mcp=VendorMcp(endpoint_id="jira-prod-mcp-v1", url="https://x.invalid/"),
-        policy=policy,
-        tools={
-            "update_issue": ToolPolicy(action_limits={"allowed_fields": ["labels"]}),
-        },
-        default_mode="strict",
-    )
+    return factories.family(policy=policy)
 
 
 def _request(*, verb: str = "update_issue", issue_key: str = "APF-123") -> AuthzRequest:
-    return AuthzRequest(
-        correlation_id="11111111-2222-4333-8444-555555555555",
-        subject={"sponsor": {"id": "s"}, "agent": {"id": "a"}},
-        target_resource={"resource_family": "jira-prod"},
+    return factories.authz_request(
         verb=verb,
         request_body={"issue_key": issue_key, "fields": {"labels": ["odis-demo"]}},
-        task_intent="add label",
-        issued_at="2026-05-28T00:00:00Z",
-        policy_digest="a" * 64,
     )
 
 

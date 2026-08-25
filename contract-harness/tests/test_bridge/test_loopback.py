@@ -15,7 +15,6 @@ sockets at the module level (the suite is `--disable-socket` by default).
 from __future__ import annotations
 
 import asyncio
-import socket
 from typing import Self
 
 import jwt
@@ -32,17 +31,12 @@ from odis_harness.bridge.fixtures import (
 from odis_harness.mcp_forwarder.transports import MCP_MOUNT_PATH, build_asgi_app
 from odis_harness.mcp_forwarder.vendor_http import HttpMcpClient
 from odis_harness.vault.fixtures import FixtureIdentityIssuer
+from tests import factories
 
 pytestmark = pytest.mark.enable_socket
 
 _VENDOR_AUDIENCE = "https://vendor.example/mcp"
 _AGENT_SUBJECT = "spiffe://fixture.odis.local/agent/mcp-client"
-
-
-def _free_port() -> int:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(("127.0.0.1", 0))
-        return int(s.getsockname()[1])
 
 
 def _vendor_server() -> Server:
@@ -78,7 +72,7 @@ class _RunningVendor:
     """Serves a capturing vendor MCP server on a loopback port for the duration."""
 
     def __init__(self, captured: list[dict[str, str]]) -> None:
-        self.port = _free_port()
+        self.port = factories.free_port()
         app = _capturing_app(build_asgi_app(_vendor_server()), captured)
         self._server = uvicorn.Server(
             uvicorn.Config(app, host="127.0.0.1", port=self.port, log_level="error")

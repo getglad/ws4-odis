@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from odis_harness.contracts import (
@@ -18,15 +16,6 @@ from odis_harness.contracts.validator import (
     EnvelopeValidator,
     UnknownEnvelopeError,
 )
-
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-_SCHEMAS_DIR = _REPO_ROOT / "schemas"
-
-
-@pytest.fixture(scope="module")
-def envelope_validator() -> EnvelopeValidator:
-    return EnvelopeValidator(_SCHEMAS_DIR)
-
 
 # -- Examples for each envelope ---------------------------------------------
 

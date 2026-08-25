@@ -53,7 +53,6 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 addopts = "--strict-markers --strict-config -ra --disable-socket"
 markers = [
-    "integration: integration tests (deselect with '-m \"not integration\"')",
     "requires_opa: tests that call the real `opa` binary; skipped if not on PATH",
     "requires_vault: tests that boot a dev-mode `vault` binary; skipped if ODIS_VAULT_BIN/./vault absent",
 ]

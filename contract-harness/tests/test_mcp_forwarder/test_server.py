@@ -6,12 +6,12 @@ Uses the SDK's in-memory connected client/server so the full MCP lifecycle
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 from mcp.shared.memory import create_connected_server_and_client_session
 
-from odis_harness.bundle import Bundle, Family, ToolPolicy, VendorMcp
 from odis_harness.mcp_forwarder.discovery import DiscoveryCache
-from odis_harness.mcp_forwarder.identity import RuntimeContextFactory
 from odis_harness.mcp_forwarder.policy import PolicyEvaluator
 from odis_harness.mcp_forwarder.router import Router
 from odis_harness.mcp_forwarder.server import build_mcp_server
@@ -20,61 +20,34 @@ from odis_harness.mcp_forwarder.vendor_client import (
     ToolDescriptor,
     ToolResult,
 )
-from odis_harness.substrate.fixtures import (
-    FixtureSponsorIdentityProvider,
-    FixtureWorkloadIdentityProvider,
-)
+from tests import factories
+
+if TYPE_CHECKING:
+    from odis_harness.bundle import Family
+    from odis_harness.bundle.types import DefaultMode
 
 pytestmark = [pytest.mark.enable_socket, pytest.mark.requires_opa]
 
 
-_ALLOW_LABELS_ON_APF = """
-package odis_policy
-default decision := {"decision": "deny", "obligations": {}}
-decision := {"decision": "allow", "obligations": {"allowed_fields": ["labels"]}} if {
-    input.verb == "update_issue"
-    startswith(input.request_body.issue_key, "APF-")
-}
-"""
-
-
-def _family(*, default_mode: str = "strict") -> Family:
-    return Family(
-        vendor_mcp=VendorMcp(endpoint_id="jira-prod-mcp-v1", url="https://x.invalid/"),
-        policy=_ALLOW_LABELS_ON_APF,
-        tools={
-            "update_issue": ToolPolicy(action_limits={"allowed_fields": ["labels"]}),
-        },
-        default_mode=default_mode,  # type: ignore[arg-type]
-    )
+def _family(*, default_mode: DefaultMode = "strict") -> Family:
+    return factories.family(policy=factories.ALLOW_LABELS_ON_APF, default_mode=default_mode)
 
 
 async def _router(opa_binary: str, *, vendor: InMemoryMcpClient) -> Router:
-    family = _family()
-    bundle = Bundle(
-        bundle_id="b",
-        bundle_version="0.1.0",
-        trust_root_id="r",
-        families={"jira-prod": family},
-    )
+    """Like `factories.router`, plus a populated discovery cache for `tools/list`."""
+    bundle = factories.bundle(_family())
+    clients = {factories.FAMILY_NAME: vendor}
     discovery = DiscoveryCache()
-    await discovery.populate(bundle, clients={"jira-prod": vendor})
+    await discovery.populate(bundle, clients=clients)
     return Router(
         bundle=bundle,
         policy_evaluator=PolicyEvaluator(opa_binary=opa_binary),
-        context_factory=RuntimeContextFactory(
-            workload_identity=FixtureWorkloadIdentityProvider(),
-            sponsor_provider=FixtureSponsorIdentityProvider(),
-        ),
-        audit=_NullAudit(),  # type: ignore[arg-type]
-        vendor_clients={"jira-prod": vendor},
+        context_factory=factories.context_factory(),
+        # These tests assert on protocol responses, not on audit.
+        audit=factories.audit_sink(),
+        vendor_clients=clients,
         discovery=discovery,
     )
-
-
-class _NullAudit:
-    def emit(self, event: object) -> None:
-        return
 
 
 def _vendor() -> InMemoryMcpClient:

@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import socket
 from typing import TYPE_CHECKING
 
 import pytest
@@ -30,6 +29,7 @@ from odis_harness.cli import build_router
 from odis_harness.mcp_forwarder.server import build_mcp_server
 from odis_harness.mcp_forwarder.transports import MCP_MOUNT_PATH, build_asgi_app
 from odis_harness.mcp_forwarder.vendor_http import HttpMcpClient
+from tests import factories
 from tests.factories import audit_sink
 
 if TYPE_CHECKING:
@@ -69,12 +69,6 @@ families:
 
 def _http_vendor_factory(family: Family) -> HttpMcpClient:
     return HttpMcpClient(url=family.vendor_mcp.url)
-
-
-def _free_port() -> int:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(("127.0.0.1", 0))
-        return int(s.getsockname()[1])
 
 
 def _vendor_app() -> Starlette:
@@ -122,8 +116,8 @@ async def _running(app: Starlette, port: int) -> AsyncIterator[None]:
 
 
 async def test_e2e_full_chain_allow_and_deny(tmp_path: Path, opa_binary: str) -> None:
-    vendor_port = _free_port()
-    router_port = _free_port()
+    vendor_port = factories.free_port()
+    router_port = factories.free_port()
 
     bundle_path = tmp_path / "bundle.yaml"
     bundle_path.write_text(

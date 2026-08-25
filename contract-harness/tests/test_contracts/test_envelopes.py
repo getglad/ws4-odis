@@ -16,11 +16,6 @@ from odis_harness.contracts.validator import EnvelopeValidationError, EnvelopeVa
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-@pytest.fixture(scope="module")
-def envelope_validator() -> EnvelopeValidator:
-    return EnvelopeValidator(_REPO_ROOT / "schemas")
-
-
 # -- Round-trip --------------------------------------------------------------
 
 
