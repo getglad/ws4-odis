@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 from typing import TYPE_CHECKING
 
@@ -66,6 +67,7 @@ def _forward_event(
         tool="update_issue",
         decision_id=decision_id,
         mode=mode,
+        runtime_context=factories.runtime_context(),
     )
     return sink.events[0]
 
@@ -79,6 +81,7 @@ def _refused_event(*, reason_code: str = "deny") -> AuditEvent:
         family_name="jira-prod",
         tool="update_issue",
         reason_code=reason_code,
+        runtime_context=factories.runtime_context(),
     )
     return sink.events[0]
 
@@ -95,7 +98,14 @@ def test_audit_forward_shape_and_redaction() -> None:
         "vendor_endpoint_id": "jira-prod-mcp-v1",
         "decision_id": "dec-1",
         "mode": "policy_allow",
+        # ODIS-CC-02: every forwarded/refused action names who acted. Nested under
+        # one key so it cannot collide with another `extra` entry.
+        "actor": {
+            "agent": {"id": "mcp-client", "type": "fixture_workload_identity"},
+            "originating_principal": {"id": "fixture-principal", "type": "entra_oidc"},
+        },
     }
+    assert event.user_id == "fixture-principal"
     uuid.UUID(event.event_id)
     for value in extra.values():
         assert "internal:8443" not in str(value)
@@ -128,7 +138,13 @@ def test_audit_refused_shape() -> None:
     event = _refused_event(reason_code="obligation_violation")
     assert event.event_type == "odis.mcp.forward_refused"
     assert event.reason_code == "obligation_violation"
-    assert event.extra == {"tool": "update_issue"}
+    assert event.extra == {
+        "tool": "update_issue",
+        "actor": {
+            "agent": {"id": "mcp-client", "type": "fixture_workload_identity"},
+            "originating_principal": {"id": "fixture-principal", "type": "entra_oidc"},
+        },
+    }
 
 
 def test_events_name_the_loaded_grant_not_the_fixture_defaults() -> None:
@@ -153,6 +169,7 @@ def test_events_name_the_loaded_grant_not_the_fixture_defaults() -> None:
         tool="update_issue",
         decision_id="dec-1",
         mode="policy_allow",
+        runtime_context=factories.runtime_context(),
     )
     audit_refused(
         sink,
@@ -161,6 +178,7 @@ def test_events_name_the_loaded_grant_not_the_fixture_defaults() -> None:
         family_name="jira-prod",
         tool="update_issue",
         reason_code=ReasonCode.DENY,
+        runtime_context=factories.runtime_context(),
     )
     audit_discovery_failed(sink, bundle=grant, family_name="jira-prod")
 
@@ -170,3 +188,29 @@ def test_events_name_the_loaded_grant_not_the_fixture_defaults() -> None:
         assert event.bundle_version == grant.bundle_version
         assert event.trust_root_id == grant.trust_root_id
         assert event.policy_digest == grant.policy_digest
+
+
+def test_handler_refusal_has_no_actor_and_claims_no_enforcement() -> None:
+    """A refusal at the protocol boundary names no actor and claims no enforcement.
+
+    It fires before routing resolves a family, so there is no identity context — and
+    minting one would call the identity providers on agent-controlled input that is
+    already being rejected. With no `resource_family`, the sink also derives
+    `apf_semantic_enforcement` false, which is correct: the call reached neither policy
+    nor an action-limit enforcer.
+    """
+    sink = factories.CapturingAuditSink()
+    audit_refused(
+        sink,
+        correlation_id=_CORRELATION_ID,
+        bundle=factories.bundle(),
+        family_name=None,
+        tool="whatever",
+        reason_code=ReasonCode.UNROUTED_FAMILY,
+        runtime_context=None,
+    )
+    event = sink.events[0]
+    assert event.extra == {"tool": "whatever"}
+    assert event.user_id is None
+    assert event.resource_family is None
+    assert json.loads(sink.output.getvalue())["apf_semantic_enforcement"] is False

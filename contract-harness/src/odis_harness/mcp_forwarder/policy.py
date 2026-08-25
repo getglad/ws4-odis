@@ -128,17 +128,24 @@ class PolicyEvaluator:
 
 
 def _request_to_opa_input(request: AuthzRequest) -> dict[str, Any]:
-    """Minimal projection of AuthzRequest into the OPA input document.
+    """The policy input document for per-family Rego.
 
-    This is the policy input contract for per-family Rego: `verb`,
-    `target_resource`, `request_body`, `task_intent`, and `correlation_id`.
+    Carries `subject` — the acting agent and the principal whose authority it acts under —
+    so a policy can condition on *who* is calling, not only on what.
+
+    This is not yet ODIS §6.4's Identity Context. §6.4 requires `agent_registration`
+    (§6.1), `agent_runtime` (§6.2) and `delegation` (§6.3) as MUST objects; this harness
+    holds none of them, and the draft defines no interface by which a Layer-3 component
+    would receive them. See the conformance doc's underdetermined section.
     """
     return {
         "verb": request.verb,
+        "subject": dict(request.subject),
         "target_resource": dict(request.target_resource),
         "request_body": dict(request.request_body),
         "task_intent": request.task_intent,
         "correlation_id": request.correlation_id,
+        "policy_digest": request.policy_digest,
     }
 
 

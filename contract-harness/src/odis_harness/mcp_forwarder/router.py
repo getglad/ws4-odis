@@ -18,6 +18,8 @@ import uuid
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, NoReturn
 
+import structlog
+
 from odis_harness.contracts import AuthzRequest
 from odis_harness.mcp_forwarder.action_limits import (
     ActionLimitViolation,
@@ -40,6 +42,8 @@ if TYPE_CHECKING:
     from odis_harness.mcp_forwarder.policy import PolicyEvaluator
     from odis_harness.mcp_forwarder.vendor_client import McpClient, ToolResult
 
+
+_LOG = structlog.get_logger(__name__)
 
 #: The agent identity recorded for forwarded calls. MCP `tools/call` carries no
 #: per-call agent id; binding to a real Passport identity is Phase 1+ work.
@@ -105,6 +109,36 @@ class Router:
             correlation_id=correlation_id,
         )
 
+        try:
+            return await self._gated_forward(
+                family_name, family, tool, arguments, runtime_context
+            )
+        except McpRefusal:
+            raise
+        except Exception:  # noqa: BLE001 - fail-closed boundary: a bug must refuse and be
+            # audited, never surface to the agent. Narrowing this would let an unlisted
+            # exception type escape and reach the caller as raw text.
+            # A bug, not a policy refusal. Audited with this call's own context and
+            # correlation id so the event joins the trail, then converted to a generic
+            # refusal — the agent never sees the exception.
+            _LOG.exception(
+                "router.forward.internal_error",
+                correlation_id=correlation_id,
+                resource_family=family_name,
+                tool=tool,
+            )
+            self._refuse(runtime_context, family_name, tool, ReasonCode.INTERNAL_ERROR)
+
+    async def _gated_forward(
+        self,
+        family_name: str,
+        family: Family,
+        tool: str,
+        arguments: Mapping[str, Any],
+        runtime_context: RuntimeContext,
+    ) -> ToolResult:
+        """The gate itself: policed-tool check, policy, action limits, forward."""
+        correlation_id = runtime_context.correlation_id
         has_policy = family.governs_tool(tool)
         if not has_policy:
             if family.default_mode == "permissive":
@@ -149,6 +183,7 @@ class Router:
             tool=tool,
             decision_id=decision.decision_id,
             mode="policy_allow",
+            runtime_context=runtime_context,
         )
         return result
 
@@ -175,6 +210,7 @@ class Router:
             tool=tool,
             decision_id=None,
             mode="permissive",
+            runtime_context=runtime_context,
         )
         return result
 
@@ -230,6 +266,7 @@ class Router:
             family_name=family_name,
             tool=tool,
             reason_code=reason_code,
+            runtime_context=runtime_context,
         )
         raise McpRefusal(reason_code)
 

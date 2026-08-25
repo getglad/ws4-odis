@@ -92,7 +92,8 @@
     },
     "user_id": {
       "type": "string",
-      "description": "Identifier of the originating principal (ODIS-CC-02). Optional in this harness; the Router does not yet authenticate an inbound principal."
+      "description": "Identifier of the originating principal (ODIS-CC-02). Optional in this harness; the Router does not yet authenticate an inbound principal.",
+      "minLength": 1
     },
     "reason_code": {
       "type": "string",

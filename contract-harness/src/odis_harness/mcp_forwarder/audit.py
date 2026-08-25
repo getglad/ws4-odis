@@ -26,8 +26,11 @@ from odis_harness.contracts import AuditEvent, now_iso
 from odis_harness.mcp_forwarder.reason_codes import ReasonCode
 
 if TYPE_CHECKING:
+    from typing import Any
+
     from odis_harness.audit.sink import AuditSink
     from odis_harness.bundle import Bundle, Family
+    from odis_harness.contracts import RuntimeContext
 
 
 ForwardMode = Literal["policy_allow", "permissive"]
@@ -43,6 +46,7 @@ def audit_forward(  # noqa: PLR0913 - audit event has many independent kw-only f
     tool: str,
     decision_id: str | None,
     mode: ForwardMode,
+    runtime_context: RuntimeContext,
 ) -> None:
     """Emit `odis.mcp.forward` for a successful (or permissive) forward.
 
@@ -61,11 +65,13 @@ def audit_forward(  # noqa: PLR0913 - audit event has many independent kw-only f
             bundle_version=bundle.bundle_version,
             trust_root_id=bundle.trust_root_id,
             resource_family=family_name,
+            user_id=_principal_id(runtime_context),
             extra={
                 "tool": tool,
                 "vendor_endpoint_id": family.vendor_mcp.endpoint_id,
                 "decision_id": decision_id,
                 "mode": mode,
+                **_actor(runtime_context),
             },
         )
     )
@@ -76,9 +82,10 @@ def audit_refused(  # noqa: PLR0913 - audit event has many independent kw-only f
     *,
     correlation_id: str,
     bundle: Bundle,
-    family_name: str,
+    family_name: str | None,
     tool: str,
     reason_code: ReasonCode,
+    runtime_context: RuntimeContext | None,
 ) -> None:
     """Emit `odis.mcp.forward_refused` with a structured reason_code.
 
@@ -97,9 +104,48 @@ def audit_refused(  # noqa: PLR0913 - audit event has many independent kw-only f
             trust_root_id=bundle.trust_root_id,
             resource_family=family_name,
             reason_code=reason_code,
-            extra={"tool": tool},
+            user_id=_principal_id(runtime_context),
+            extra={"tool": tool, **_actor(runtime_context)},
         )
     )
+
+
+def _principal_id(ctx: RuntimeContext | None) -> str | None:
+    """The originating principal's id, for the envelope's `user_id` (ODIS-CC-02).
+
+    The id is deliberately in two places: `user_id` is the schema's own scalar slot, so a
+    consumer that knows only the envelope can attribute the action, while
+    `extra.originating_principal` carries the structured identity including its type.
+    """
+    if ctx is None:
+        return None
+    value = ctx.originating_principal.get("id")
+    return value if isinstance(value, str) else None
+
+
+def _actor(ctx: RuntimeContext | None) -> dict[str, Any]:
+    """The acting identities ODIS-CC-02 requires on every logged action.
+
+    Nested under one `actor` key rather than splatted as bare keys, so it cannot collide
+    with or be shadowed by another `extra` entry.
+
+    CC-02 asks for the logical agent, the executing runtime instance and the
+    authenticated originating principal. Two of the three are real here; the runtime
+    instance is absent because the Router authenticates no inbound credential, so it has
+    nothing that identifies *this* run of the agent as opposed to the agent generally.
+    Recorded as absent rather than filled with a placeholder.
+    """
+    if ctx is None:
+        # A refusal at the protocol boundary, before routing resolved a family. There is
+        # no identity context for the call, and inventing one would mean calling the
+        # identity providers on agent-controlled input that is already being rejected.
+        return {}
+    return {
+        "actor": {
+            "agent": dict(ctx.agent),
+            "originating_principal": dict(ctx.originating_principal),
+        }
+    }
 
 
 def audit_discovery_failed(audit: AuditSink, *, bundle: Bundle, family_name: str) -> None:

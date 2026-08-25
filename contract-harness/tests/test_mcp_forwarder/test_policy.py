@@ -117,3 +117,34 @@ def test_missing_opa_binary_reports_policy_error_not_deny() -> None:
     decision = evaluator.evaluate(_family("package odis_policy\n"), _request())
     assert decision.decision == "deny"
     assert decision.reason_code == ReasonCode.POLICY_ERROR
+
+
+@pytest.mark.requires_opa
+def test_policy_can_condition_on_the_calling_identity(opa_binary: str) -> None:
+    """The point of putting `subject` in the OPA input: a policy can gate on WHO calls.
+
+    Without this, nothing in the repo reads `input.subject` — no shipped policy, no test,
+    no Rego the Vault plugin generates — so the field could be renamed or dropped and the
+    whole suite would stay green.
+    """
+    principal_gated = """
+package odis_policy
+default decision := {"decision": "deny", "obligations": {}}
+decision := {"decision": "allow", "obligations": {}} if {
+    input.subject.originating_principal.id == "alice"
+}
+"""
+    evaluator = PolicyEvaluator(opa_binary=opa_binary)
+    family = factories.family(policy=principal_gated)
+
+    allowed = factories.authz_request()
+    object.__setattr__(
+        allowed, "subject", {"originating_principal": {"id": "alice"}, "agent": {"id": "a"}}
+    )
+    assert evaluator.evaluate(family, allowed).decision == "allow"
+
+    refused = factories.authz_request()
+    object.__setattr__(
+        refused, "subject", {"originating_principal": {"id": "mallory"}, "agent": {"id": "a"}}
+    )
+    assert evaluator.evaluate(family, refused).decision == "deny"

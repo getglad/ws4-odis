@@ -24,7 +24,7 @@ from odis_harness.bundle import (
     ToolPolicy,
     VendorMcp,
 )
-from odis_harness.contracts import AuthzRequest, EnvelopeValidator
+from odis_harness.contracts import AuthzRequest, EnvelopeValidator, RuntimeContext
 from odis_harness.mcp_forwarder.identity import RuntimeContextFactory
 from odis_harness.mcp_forwarder.policy import PolicyDecision, PolicyEvaluator
 from odis_harness.mcp_forwarder.router import Router
@@ -196,6 +196,17 @@ def context_factory() -> RuntimeContextFactory:
     )
 
 
+def runtime_context() -> RuntimeContext:
+    """A `RuntimeContext` as the Router builds one, for testing the audit emitters."""
+    return context_factory().build(
+        agent_id="mcp-client",
+        resource_family=FAMILY_NAME,
+        tool=TOOL_NAME,
+        bundle=bundle(),
+        correlation_id="11111111-2222-4333-8444-555555555555",
+    )
+
+
 def router(
     routed: Family | Bundle | None = None,
     *,
@@ -299,4 +310,5 @@ __all__ = [
     "in_memory_vendor",
     "in_memory_vendor_from_family",
     "router",
+    "runtime_context",
 ]

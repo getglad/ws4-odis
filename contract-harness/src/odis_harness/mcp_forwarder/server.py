@@ -72,14 +72,17 @@ async def _call(router: Router, name: str, arguments: Mapping[str, Any]) -> Call
         family_name, tool = parse_tool_name(name)
     except UnroutedToolName:
         _audit_handler_refusal(
-            router, family_name="<unrouted>", tool=name, reason_code=ReasonCode.UNROUTED_FAMILY
+            router, family_name=None, tool=name, reason_code=ReasonCode.UNROUTED_FAMILY
         )
         return _refusal_result(ReasonCode.UNROUTED_FAMILY)
 
     family = router.bundle.family(family_name)
     if family is None:
+        # family_name is None: the bundle declares no such family, so there is no
+        # resource family to name. The sink derives `apf_semantic_enforcement` from
+        # the presence of one, and a call refused before policy was not enforced.
         _audit_handler_refusal(
-            router, family_name=family_name, tool=tool, reason_code=ReasonCode.UNROUTED_FAMILY
+            router, family_name=None, tool=tool, reason_code=ReasonCode.UNROUTED_FAMILY
         )
         return _refusal_result(ReasonCode.UNROUTED_FAMILY)
 
@@ -99,13 +102,18 @@ async def _call(router: Router, name: str, arguments: Mapping[str, Any]) -> Call
 
 
 def _audit_handler_refusal(
-    router: Router, *, family_name: str, tool: str, reason_code: ReasonCode
+    router: Router, *, family_name: str | None, tool: str, reason_code: ReasonCode
 ) -> None:
     """Emit the refusal audit for a call rejected at the handler, before `forward`.
 
     `forward` audits its own refusals; this covers the two it never sees — an
     unroutable tool name and an unexpected error at the protocol boundary.
     """
+    # No identity context: this fires before routing resolved a family, and minting one
+    # would call the identity providers — network I/O in a real deployment — on
+    # agent-controlled input that is already being rejected. `family_name` is None for an
+    # unroutable name so the sink does not derive `apf_semantic_enforcement` for a call
+    # that reached neither policy nor an enforcer.
     audit_refused(
         router.audit,
         correlation_id=str(uuid.uuid4()),
@@ -113,6 +121,7 @@ def _audit_handler_refusal(
         family_name=family_name,
         tool=tool,
         reason_code=reason_code,
+        runtime_context=None,
     )
 
 
