@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://apf.local/schemas/odis.runtime.context.v1.json",
   "title": "odis.runtime.context.v1",
-  "description": "Trusted runtime context envelope. Mirrors APF §6.1; populated by the substrate, consumed by the MCP adapter when building an authz request. Caller-supplied subject fields are discarded by the substrate; nothing in this envelope is sourced from the agent's call payload.",
+  "description": "Trusted runtime context envelope. Mirrors APF \u00a76.1; populated by the substrate, consumed by the MCP adapter when building an authz request. Caller-supplied subject fields are discarded by the substrate; nothing in this envelope is sourced from the agent's call payload.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -32,16 +32,18 @@
     },
     "bundle_id": {
       "type": "string",
-      "const": "odis-fixture-bundle",
-      "description": "Stub policy metadata; not a real signed bundle id."
+      "description": "Identifier of the Authority Grant this envelope was produced under. Carried from the loaded grant, not pinned: an envelope must name the grant actually in force.",
+      "minLength": 1
     },
     "bundle_version": {
       "type": "string",
-      "const": "0.0.0-odis-harness"
+      "minLength": 1,
+      "description": "Version of the Authority Grant in force. Carried from the loaded grant, not pinned: an envelope must name the grant actually in force."
     },
     "trust_root_id": {
       "type": "string",
-      "const": "odis-fixture-trust-root"
+      "minLength": 1,
+      "description": "Trust anchor the grant's signature chains to. Carried from the loaded grant, not pinned: an envelope must name the grant actually in force."
     },
     "policy_digest": {
       "type": "string",
@@ -77,7 +79,10 @@
     "Identity": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "type"],
+      "required": [
+        "id",
+        "type"
+      ],
       "properties": {
         "id": {
           "type": "string",
@@ -93,7 +98,9 @@
     "ResourceRef": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["resource_family"],
+      "required": [
+        "resource_family"
+      ],
       "properties": {
         "resource_family": {
           "type": "string",

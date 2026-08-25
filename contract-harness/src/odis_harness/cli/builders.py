@@ -200,7 +200,7 @@ async def _establish_one(name: str, client: SupportsSessionEstablish) -> None:
 def _make_discovery_failed_cb(audit: AuditSink, bundle: Bundle) -> Callable[[str, Exception], None]:
     def _cb(family_name: str, error: Exception) -> None:
         del error  # not echoed into audit (could carry vendor detail)
-        audit_discovery_failed(audit, policy_digest=bundle.policy_digest, family_name=family_name)
+        audit_discovery_failed(audit, bundle=bundle, family_name=family_name)
 
     return _cb
 

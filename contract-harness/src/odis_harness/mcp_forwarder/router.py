@@ -101,7 +101,7 @@ class Router:
             agent_id=self.agent_id,
             resource_family=family_name,
             tool=tool,
-            policy_digest=self.bundle.policy_digest,
+            bundle=self.bundle,
             correlation_id=correlation_id,
         )
 
@@ -143,7 +143,7 @@ class Router:
         audit_forward(
             self.audit,
             correlation_id=correlation_id,
-            policy_digest=self.bundle.policy_digest,
+            bundle=self.bundle,
             family_name=family_name,
             family=family,
             tool=tool,
@@ -169,7 +169,7 @@ class Router:
         audit_forward(
             self.audit,
             correlation_id=runtime_context.correlation_id,
-            policy_digest=self.bundle.policy_digest,
+            bundle=self.bundle,
             family_name=family_name,
             family=family,
             tool=tool,
@@ -211,6 +211,9 @@ class Router:
             task_intent=runtime_context.task_intent,
             issued_at=runtime_context.issued_at,
             policy_digest=runtime_context.policy_digest,
+            bundle_id=runtime_context.bundle_id,
+            bundle_version=runtime_context.bundle_version,
+            trust_root_id=runtime_context.trust_root_id,
         )
 
     def _refuse(
@@ -223,7 +226,7 @@ class Router:
         audit_refused(
             self.audit,
             correlation_id=runtime_context.correlation_id,
-            policy_digest=self.bundle.policy_digest,
+            bundle=self.bundle,
             family_name=family_name,
             tool=tool,
             reason_code=reason_code,

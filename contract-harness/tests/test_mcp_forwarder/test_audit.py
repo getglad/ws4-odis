@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from odis_harness.contracts import STUB_BUNDLE_VERSION
 from odis_harness.contracts.audit_taxonomy import (
     ODIS_EXTENSION_TYPES,
     is_valid_event_type,
@@ -59,7 +60,7 @@ def _forward_event(
     audit_forward(
         sink,
         correlation_id=_CORRELATION_ID,
-        policy_digest="a" * 64,
+        bundle=factories.bundle(),
         family_name="jira-prod",
         family=factories.family(url=_VENDOR_URL, policy="package odis_policy\n"),
         tool="update_issue",
@@ -74,7 +75,7 @@ def _refused_event(*, reason_code: str = "deny") -> AuditEvent:
     audit_refused(
         sink,
         correlation_id=_CORRELATION_ID,
-        policy_digest="a" * 64,
+        bundle=factories.bundle(),
         family_name="jira-prod",
         tool="update_issue",
         reason_code=reason_code,
@@ -112,7 +113,7 @@ def test_audit_forward_permissive_shape() -> None:
 def test_audit_discovery_failed_shape() -> None:
     """The third emitter: a family whose tool catalog could not be fetched."""
     sink = factories.CapturingAuditSink()
-    audit_discovery_failed(sink, policy_digest="a" * 64, family_name="jira-prod")
+    audit_discovery_failed(sink, bundle=factories.bundle(), family_name="jira-prod")
     event = sink.events[0]
     assert event.event_type == "odis.mcp.discovery_failed"
     assert event.resource_family == "jira-prod"
@@ -128,3 +129,44 @@ def test_audit_refused_shape() -> None:
     assert event.event_type == "odis.mcp.forward_refused"
     assert event.reason_code == "obligation_violation"
     assert event.extra == {"tool": "update_issue"}
+
+
+def test_events_name_the_loaded_grant_not_the_fixture_defaults() -> None:
+    """An audit event must identify the Authority Grant actually in force.
+
+    Guards all three emitters against reporting the `STUB_*` fallbacks instead of the
+    loaded grant's identity, which would leave the trail unable to say which policy
+    authorized a call.
+    """
+    grant = factories.bundle()
+    # A grant whose identity differs from the fixture constants, so a regression to
+    # the pinned values is visible rather than coincidentally correct.
+    assert grant.bundle_version != STUB_BUNDLE_VERSION
+
+    sink = factories.CapturingAuditSink()
+    audit_forward(
+        sink,
+        correlation_id=_CORRELATION_ID,
+        bundle=grant,
+        family_name="jira-prod",
+        family=factories.family(),
+        tool="update_issue",
+        decision_id="dec-1",
+        mode="policy_allow",
+    )
+    audit_refused(
+        sink,
+        correlation_id=_CORRELATION_ID,
+        bundle=grant,
+        family_name="jira-prod",
+        tool="update_issue",
+        reason_code=ReasonCode.DENY,
+    )
+    audit_discovery_failed(sink, bundle=grant, family_name="jira-prod")
+
+    assert len(sink.events) == 3
+    for event in sink.events:
+        assert event.bundle_id == grant.bundle_id
+        assert event.bundle_version == grant.bundle_version
+        assert event.trust_root_id == grant.trust_root_id
+        assert event.policy_digest == grant.policy_digest

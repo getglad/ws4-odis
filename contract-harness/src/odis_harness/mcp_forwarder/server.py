@@ -109,7 +109,7 @@ def _audit_handler_refusal(
     audit_refused(
         router.audit,
         correlation_id=str(uuid.uuid4()),
-        policy_digest=router.bundle.policy_digest,
+        bundle=router.bundle,
         family_name=family_name,
         tool=tool,
         reason_code=reason_code,

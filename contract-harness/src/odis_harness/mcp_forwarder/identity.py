@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 from odis_harness.contracts import RuntimeContext, now_iso
 
 if TYPE_CHECKING:
+    from odis_harness.bundle import Bundle
     from odis_harness.substrate.identity import (
         SponsorIdentityProvider,
         WorkloadIdentityProvider,
@@ -45,7 +46,7 @@ class RuntimeContextFactory:
         agent_id: str,
         resource_family: str,
         tool: str,
-        policy_digest: str,
+        bundle: Bundle,
         correlation_id: str,
         task_intent: str = "",
     ) -> RuntimeContext:
@@ -64,7 +65,10 @@ class RuntimeContextFactory:
             task_intent=task_intent or f"invoke {resource_family}.{tool}",
             target_resource={"resource_family": resource_family},
             issued_at=now_iso(),
-            policy_digest=policy_digest,
+            policy_digest=bundle.policy_digest,
+            bundle_id=bundle.bundle_id,
+            bundle_version=bundle.bundle_version,
+            trust_root_id=bundle.trust_root_id,
         )
 
 

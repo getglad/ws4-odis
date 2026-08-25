@@ -31,15 +31,18 @@
     },
     "bundle_id": {
       "type": "string",
-      "const": "odis-fixture-bundle"
+      "minLength": 1,
+      "description": "Identifier of the Authority Grant this envelope was produced under. Carried from the loaded grant, not pinned: an envelope must name the grant actually in force."
     },
     "bundle_version": {
       "type": "string",
-      "const": "0.0.0-odis-harness"
+      "minLength": 1,
+      "description": "Version of the Authority Grant in force. Carried from the loaded grant, not pinned: an envelope must name the grant actually in force."
     },
     "trust_root_id": {
       "type": "string",
-      "const": "odis-fixture-trust-root"
+      "minLength": 1,
+      "description": "Trust anchor the grant's signature chains to. Carried from the loaded grant, not pinned: an envelope must name the grant actually in force."
     },
     "policy_digest": {
       "type": "string",

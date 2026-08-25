@@ -1,9 +1,8 @@
 """RuntimeContextFactory (trusted identity production).
 
-Replaces the SubstrateStub orchestrator's runtime-context-building role for the
-Router. Reuses the kept Passport identity providers (substrate/identity.py +
-fixtures.py). The security property: sponsor identity always comes from the
-trusted provider, never from agent input.
+The Router builds its own identity context from the injected Passport and sponsor
+providers. The security property under test: sponsor identity always comes from the
+provider, never from agent input, so an agent cannot claim who it acts for.
 """
 
 from __future__ import annotations
@@ -15,6 +14,7 @@ from odis_harness.substrate.fixtures import (
     FixtureSponsorIdentityProvider,
     FixtureWorkloadIdentityProvider,
 )
+from tests import factories
 
 if TYPE_CHECKING:
     from odis_harness.contracts import RuntimeContext
@@ -32,7 +32,7 @@ def _build() -> RuntimeContext:
         agent_id="mcp-client",
         resource_family="jira-prod",
         tool="update_issue",
-        policy_digest="a" * 64,
+        bundle=factories.bundle(),
         correlation_id="11111111-2222-4333-8444-555555555555",
     )
 
@@ -57,7 +57,7 @@ def test_build_sets_resource_family_explicitly_not_from_tool() -> None:
 def test_build_threads_scalar_inputs_into_context() -> None:
     ctx = _build()
     assert ctx.correlation_id == "11111111-2222-4333-8444-555555555555"
-    assert ctx.policy_digest == "a" * 64
+    assert ctx.policy_digest == factories.bundle().policy_digest
 
 
 def test_build_default_task_intent_when_empty() -> None:
@@ -70,7 +70,7 @@ def test_build_honors_explicit_task_intent() -> None:
         agent_id="mcp-client",
         resource_family="jira-prod",
         tool="update_issue",
-        policy_digest="a" * 64,
+        bundle=factories.bundle(),
         correlation_id="11111111-2222-4333-8444-555555555555",
         task_intent="add the odis-demo label",
     )
@@ -84,14 +84,14 @@ def test_build_sponsor_is_provider_controlled_regardless_of_agent_id() -> None:
         agent_id="agent-a",
         resource_family="jira-prod",
         tool="update_issue",
-        policy_digest="a" * 64,
+        bundle=factories.bundle(),
         correlation_id="11111111-2222-4333-8444-555555555555",
     )
     ctx_b = factory.build(
         agent_id="agent-b-claims-admin",
         resource_family="jira-prod",
         tool="update_issue",
-        policy_digest="a" * 64,
+        bundle=factories.bundle(),
         correlation_id="22222222-3333-4444-8555-666666666666",
     )
     assert ctx_a.sponsor == ctx_b.sponsor  # sponsor never reflects agent claims

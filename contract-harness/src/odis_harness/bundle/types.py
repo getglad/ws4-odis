@@ -15,6 +15,10 @@ if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping
     from typing import Any
 
+#: Vendor MCP URL scheme, mirroring the `url` pattern in the same schema. HTTP-only:
+#: the Router speaks Streamable HTTP, so any other scheme is unroutable.
+_URL_PATTERN = re.compile(r"^https?://")
+
 #: `endpoint_id` and family-name pattern. Lowercase kebab. The authority is the
 #: `pattern` in `schemas/odis.bundle.v1.json`; this and `mcp_forwarder.names` each
 #: restate it rather than sharing a constant, because `names` is a leaf that must not
@@ -41,6 +45,12 @@ class VendorMcp:
     def __post_init__(self) -> None:
         if not _NAME_PATTERN.fullmatch(self.endpoint_id):
             message = f"endpoint_id {self.endpoint_id!r} does not match {_NAME_PATTERN.pattern!r}"
+            raise ValueError(message)
+        # The schema constrains `url` too, and `loader` relies on this method to re-check
+        # schema invariants for the programmatic `build_router_from_bundle` path, which
+        # never sees the schema.
+        if not _URL_PATTERN.match(self.url):
+            message = f"url {self.url!r} does not match {_URL_PATTERN.pattern!r}"
             raise ValueError(message)
 
 

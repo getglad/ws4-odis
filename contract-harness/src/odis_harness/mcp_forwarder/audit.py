@@ -8,8 +8,9 @@ The `odis.mcp.*` event types are written as literals rather than as an enum:
 every event against it, so a typo surfaces as an `EnvelopeValidationError` on emission.
 
 Each helper constructs its event and hands it to the provided `AuditSink`, stamping the
-supplied `policy_digest` (bound to the bundle the decision was made against) so the
-audit trail attests to the exact bundle in force.
+Authority Grant's identity — `policy_digest`, `bundle_id`, `bundle_version` and
+`trust_root_id` — so the trail names the grant actually in force. All four come from one
+`Bundle` argument rather than being passed separately, so they cannot disagree.
 
 `vendor_endpoint_id` (from `Family.vendor_mcp`) is recorded in the event's
 `extra`. The vendor's URL is NOT recorded: audit records reference
@@ -26,7 +27,7 @@ from odis_harness.mcp_forwarder.reason_codes import ReasonCode
 
 if TYPE_CHECKING:
     from odis_harness.audit.sink import AuditSink
-    from odis_harness.bundle import Family
+    from odis_harness.bundle import Bundle, Family
 
 
 ForwardMode = Literal["policy_allow", "permissive"]
@@ -36,7 +37,7 @@ def audit_forward(  # noqa: PLR0913 - audit event has many independent kw-only f
     audit: AuditSink,
     *,
     correlation_id: str,
-    policy_digest: str,
+    bundle: Bundle,
     family_name: str,
     family: Family,
     tool: str,
@@ -55,7 +56,10 @@ def audit_forward(  # noqa: PLR0913 - audit event has many independent kw-only f
             event_id=str(uuid.uuid4()),
             timestamp=now_iso(),
             event_type="odis.mcp.forward",
-            policy_digest=policy_digest,
+            policy_digest=bundle.policy_digest,
+            bundle_id=bundle.bundle_id,
+            bundle_version=bundle.bundle_version,
+            trust_root_id=bundle.trust_root_id,
             resource_family=family_name,
             extra={
                 "tool": tool,
@@ -71,7 +75,7 @@ def audit_refused(  # noqa: PLR0913 - audit event has many independent kw-only f
     audit: AuditSink,
     *,
     correlation_id: str,
-    policy_digest: str,
+    bundle: Bundle,
     family_name: str,
     tool: str,
     reason_code: ReasonCode,
@@ -87,7 +91,10 @@ def audit_refused(  # noqa: PLR0913 - audit event has many independent kw-only f
             event_id=str(uuid.uuid4()),
             timestamp=now_iso(),
             event_type="odis.mcp.forward_refused",
-            policy_digest=policy_digest,
+            policy_digest=bundle.policy_digest,
+            bundle_id=bundle.bundle_id,
+            bundle_version=bundle.bundle_version,
+            trust_root_id=bundle.trust_root_id,
             resource_family=family_name,
             reason_code=reason_code,
             extra={"tool": tool},
@@ -95,7 +102,7 @@ def audit_refused(  # noqa: PLR0913 - audit event has many independent kw-only f
     )
 
 
-def audit_discovery_failed(audit: AuditSink, *, policy_digest: str, family_name: str) -> None:
+def audit_discovery_failed(audit: AuditSink, *, bundle: Bundle, family_name: str) -> None:
     """Emit `odis.mcp.discovery_failed` when a family's tool catalog cannot be fetched.
 
     The underlying error is deliberately not carried into the event: it can hold vendor
@@ -107,7 +114,10 @@ def audit_discovery_failed(audit: AuditSink, *, policy_digest: str, family_name:
             event_id=str(uuid.uuid4()),
             timestamp=now_iso(),
             event_type="odis.mcp.discovery_failed",
-            policy_digest=policy_digest,
+            policy_digest=bundle.policy_digest,
+            bundle_id=bundle.bundle_id,
+            bundle_version=bundle.bundle_version,
+            trust_root_id=bundle.trust_root_id,
             resource_family=family_name,
             reason_code=ReasonCode.VENDOR_UNREACHABLE,
         )
