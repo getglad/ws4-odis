@@ -1,4 +1,3 @@
-[Placeholder README for ODIS repo]
 
 # ODIS — Open Delegation & Identity Standard
 
