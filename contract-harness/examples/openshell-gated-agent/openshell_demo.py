@@ -285,7 +285,17 @@ async def main() -> int:
                 )
                 bundle_id = router.bundle.bundle_id
                 print(f"[vault] minted + transit-signed + offline-verified bundle {bundle_id!r}")
-                async with _running(build_asgi_app(build_mcp_server(router)), ROUTER_PORT):
+                # No inbound auth. The sandbox bounds the *agent* — it cannot reach the
+                # vendor directly — but it does not bound anyone else: `_running` binds
+                # 0.0.0.0 so the bridge can reach it, so for the ~45s this demo runs the
+                # Router answers any host on the network. Acceptable only because the
+                # vendor here is an in-process stub holding no credential. Wiring
+                # `--inbound-key` into this example is tracked follow-up; a deployment
+                # forwarding to a real vendor must not copy this line.
+                app = build_asgi_app(
+                    build_mcp_server(router, requires_authenticated_caller=False)
+                )
+                async with _running(app, ROUTER_PORT):
                     print(f"[router] serving on 0.0.0.0:{ROUTER_PORT} (reachable from the sandbox)")
                     rc = await _run_agent_in_sandbox()
 

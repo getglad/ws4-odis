@@ -53,7 +53,7 @@ async def _router() -> Router:
 
 async def test_build_asgi_app_mounts_mcp_endpoint() -> None:
     router = await _router()
-    app = build_asgi_app(build_mcp_server(router))
+    app = build_asgi_app(build_mcp_server(router, requires_authenticated_caller=False))
     assert isinstance(app, Starlette)
     mount_paths = [getattr(r, "path", None) for r in app.routes]
     assert MCP_MOUNT_PATH in mount_paths
@@ -63,7 +63,7 @@ async def test_build_asgi_app_mounts_mcp_endpoint() -> None:
 async def test_http_server_initialize_and_list_tools_over_real_socket() -> None:
     """End-to-end: uvicorn on a loopback port, driven by the SDK HTTP client."""
     port = factories.free_port()
-    server = build_mcp_server(await _router())
+    server = build_mcp_server(await _router(), requires_authenticated_caller=False)
     app = build_asgi_app(server)
     config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="error")
     uv_server = uvicorn.Server(config)

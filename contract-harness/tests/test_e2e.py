@@ -134,7 +134,8 @@ async def test_e2e_full_chain_allow_and_deny(tmp_path: Path, opa_binary: str) ->
             audit=audit_sink(),
             vendor_client_factory=_http_vendor_factory,
         )
-        async with _running(build_asgi_app(build_mcp_server(router)), router_port):
+        server = build_mcp_server(router, requires_authenticated_caller=False)
+        async with _running(build_asgi_app(server), router_port):
             url = f"http://127.0.0.1:{router_port}{MCP_MOUNT_PATH}"
             async with (
                 streamable_http_client(url) as (read, write, _sid),

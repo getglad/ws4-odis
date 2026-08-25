@@ -37,6 +37,14 @@ class ReasonCode(StrEnum):
     #: The tool name carried no routable family prefix, or named an unknown family.
     UNROUTED_FAMILY = "unrouted_family"
     #: An unexpected error at the handler boundary. The agent is told nothing more.
+    UNATTRIBUTED_CALLER = "unattributed_caller"
+    """The transport validates credentials, but no verified identity reached the handler.
+
+    Distinct from `INTERNAL_ERROR`: that is a bug in the forward path, this is a call that
+    got past the gate without an identity — a middleware bypass or a mounting mistake.
+    An operator reading the trail after an incident needs to tell the two apart.
+    """
+
     INTERNAL_ERROR = "internal_error"
 
 

@@ -18,6 +18,7 @@ from odis_harness.mcp_forwarder.reason_codes import ReasonCode
         (ReasonCode.UNENFORCEABLE_TOOL, "unenforceable_tool"),
         (ReasonCode.VENDOR_UNREACHABLE, "vendor_unreachable"),
         (ReasonCode.UNROUTED_FAMILY, "unrouted_family"),
+        (ReasonCode.UNATTRIBUTED_CALLER, "unattributed_caller"),
         (ReasonCode.INTERNAL_ERROR, "internal_error"),
     ],
 )
@@ -48,5 +49,6 @@ def test_vocabulary_is_exactly_the_documented_set() -> None:
         "unenforceable_tool",
         "vendor_unreachable",
         "unrouted_family",
+        "unattributed_caller",
         "internal_error",
     }

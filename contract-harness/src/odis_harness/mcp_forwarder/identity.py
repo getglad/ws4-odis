@@ -26,10 +26,35 @@ if TYPE_CHECKING:
         WorkloadIdentityProvider,
     )
 
-#: The `agent.type` recorded in the RuntimeContext. Reflects that the harness
-#: uses the fixture workload-identity provider; a real Passport implementation
-#: (SPIFFE/SAT/…) would surface its own type.
-_AGENT_TYPE = "fixture_workload_identity"
+#: The `agent.type` for an identity the Router did not verify — the in-process paths.
+#: Kept distinct from `VERIFIED_AGENT_TYPE` so a policy or an audit reader can tell a
+#: fixture identity from one that arrived on a validated credential.
+UNVERIFIED_AGENT_TYPE = "fixture_workload_identity"
+
+#: The `agent.type` for an id taken from a credential the transport verified. Names the
+#: *strength* of the identity, not the scheme: `token_verifier` is a public seam, so the
+#: handler cannot know whether a SPIFFE JWT-SVID or some other bearer was checked, and
+#: recording a specific scheme would assert something it did not observe.
+VERIFIED_AGENT_TYPE = "verified_bearer"
+
+
+@dataclass(frozen=True, kw_only=True, slots=True)
+class CallerIdentity:
+    """Who the Router believes it is acting for, and on what evidence.
+
+    One object rather than two parallel arguments because the pair must move together:
+    an `agent_id` lifted from a verified credential recorded under the *unverified* type
+    would misreport the strength of the identity in every audit event it appears in.
+    """
+
+    agent_id: str
+    #: How `agent_id` was established — one of the two constants above.
+    agent_type: str = UNVERIFIED_AGENT_TYPE
+
+    @classmethod
+    def verified(cls, agent_id: str) -> CallerIdentity:
+        """An id taken from a credential the transport validated."""
+        return cls(agent_id=agent_id, agent_type=VERIFIED_AGENT_TYPE)
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
@@ -42,7 +67,7 @@ class RuntimeContextFactory:
     def build(  # noqa: PLR0913 - all kw-only; each names a distinct RuntimeContext field
         self,
         *,
-        agent_id: str,
+        caller: CallerIdentity,
         resource_family: str,
         tool: str,
         bundle: Bundle,
@@ -56,11 +81,15 @@ class RuntimeContextFactory:
         the Router and threaded through every event for this action.
         """
         principal = self.principal_provider.current_principal()
-        credential = self.workload_identity.issue(principal_id=principal.id, agent_id=agent_id)
+        # The credential is still minted: the workload-identity provider is a gate that
+        # can refuse. But the id recorded is `caller`'s, not the credential's — pairing a
+        # provider-substituted id with `caller.agent_type` would report a value the Router
+        # never received as having come off a verified bearer.
+        self.workload_identity.issue(principal_id=principal.id, agent_id=caller.agent_id)
         return RuntimeContext(
             correlation_id=correlation_id,
             originating_principal={"id": principal.id, "type": principal.type},
-            agent={"id": credential.agent_id, "type": _AGENT_TYPE},
+            agent={"id": caller.agent_id, "type": caller.agent_type},
             task_intent=task_intent or f"invoke {resource_family}.{tool}",
             target_resource={"resource_family": resource_family},
             issued_at=now_iso(),
@@ -71,4 +100,9 @@ class RuntimeContextFactory:
         )
 
 
-__all__ = ["RuntimeContextFactory"]
+__all__ = [
+    "UNVERIFIED_AGENT_TYPE",
+    "VERIFIED_AGENT_TYPE",
+    "CallerIdentity",
+    "RuntimeContextFactory",
+]

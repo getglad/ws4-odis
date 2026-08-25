@@ -26,6 +26,7 @@ from odis_harness.mcp_forwarder.action_limits import (
     enforce_action_limits,
 )
 from odis_harness.mcp_forwarder.audit import audit_forward, audit_refused
+from odis_harness.mcp_forwarder.identity import CallerIdentity
 from odis_harness.mcp_forwarder.policy import Decision
 from odis_harness.mcp_forwarder.reason_codes import ReasonCode
 from odis_harness.mcp_forwarder.vendor_client import VendorUnreachable
@@ -33,6 +34,8 @@ from odis_harness.mcp_forwarder.vendor_client import VendorUnreachable
 if TYPE_CHECKING:
     from collections.abc import Mapping
     from typing import Any
+
+    from mcp.server.auth.provider import TokenVerifier
 
     from odis_harness.audit.sink import AuditSink
     from odis_harness.bundle import Bundle, Family
@@ -45,8 +48,11 @@ if TYPE_CHECKING:
 
 _LOG = structlog.get_logger(__name__)
 
-#: The agent identity recorded for forwarded calls. MCP `tools/call` carries no
-#: per-call agent id; binding to a real Passport identity is Phase 1+ work.
+#: Fallback agent identity for call paths with no inbound credential — `demo` and the
+#: in-process tests. On the HTTP surface configured with `serve --inbound-key`, the id
+#: comes from the verified bearer's subject (`server._caller_identity`), so it is
+#: received rather than asserted. `serve` without trust material attributes every caller
+#: to this constant, and says so in its startup banner.
 DEFAULT_AGENT_ID = "mcp-client"
 
 
@@ -75,7 +81,13 @@ class Router:
     discovery: DiscoveryCache | None = None
     agent_id: str = DEFAULT_AGENT_ID
 
-    async def serve(self, *, host: str, port: int) -> None:
+    async def serve(
+        self,
+        *,
+        host: str,
+        port: int,
+        token_verifier: TokenVerifier | None = None,
+    ) -> None:
         """Build the MCP server over this Router and serve it via HTTP.
 
         Lazy imports keep `router.py` free of the `mcp`/Starlette dependency at
@@ -89,7 +101,11 @@ class Router:
             serve_http,
         )
 
-        await serve_http(build_mcp_server(self), host=host, port=port)
+        # The handler needs the transport's posture to fail closed on a call it cannot
+        # attribute, so it is passed to the server rather than stored on `self`: this is
+        # a property of one `serve` call, not of the Router.
+        server = build_mcp_server(self, requires_authenticated_caller=token_verifier is not None)
+        await serve_http(server, host=host, port=port, token_verifier=token_verifier)
 
     async def forward(
         self,
@@ -97,12 +113,19 @@ class Router:
         family: Family,
         tool: str,
         arguments: Mapping[str, Any],
+        *,
+        caller: CallerIdentity | None = None,
     ) -> ToolResult:
         """Gate + forward a single tool call. Raises `McpRefusal` on any
-        refusal (after emitting the refusal audit)."""
+        refusal (after emitting the refusal audit).
+
+        `caller` carries the subject of the caller's verified credential. It defaults to
+        an unverified `self.agent_id` for the in-process paths (`demo`, tests) that carry
+        no inbound credential — see the honesty note on `DEFAULT_AGENT_ID`.
+        """
         correlation_id = str(uuid.uuid4())
         runtime_context = self.context_factory.build(
-            agent_id=self.agent_id,
+            caller=caller if caller is not None else CallerIdentity(agent_id=self.agent_id),
             resource_family=family_name,
             tool=tool,
             bundle=self.bundle,

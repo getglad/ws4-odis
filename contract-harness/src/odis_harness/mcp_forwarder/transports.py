@@ -14,21 +14,31 @@ import contextlib
 from typing import TYPE_CHECKING
 
 import uvicorn
+from mcp.server.auth.middleware.auth_context import AuthContextMiddleware
+from mcp.server.auth.middleware.bearer_auth import BearerAuthBackend, RequireAuthMiddleware
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.routing import Mount
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
+    from mcp.server.auth.provider import TokenVerifier
     from mcp.server.lowlevel import Server
-    from starlette.types import Receive, Scope, Send
+    from starlette.types import ASGIApp, Receive, Scope, Send
 
 #: Path the MCP endpoint is mounted at. Clients connect to `http://host:port/mcp`.
 MCP_MOUNT_PATH = "/mcp"
 
 
-def build_asgi_app(server: Server, *, json_response: bool = True) -> Starlette:
+def build_asgi_app(
+    server: Server,
+    *,
+    token_verifier: TokenVerifier | None = None,
+    json_response: bool = True,
+) -> Starlette:
     """Wrap an MCP `Server` in a Starlette ASGI app via Streamable HTTP.
 
     `stateless=True`: each request is self-contained (no server-side session
@@ -57,15 +67,41 @@ def build_asgi_app(server: Server, *, json_response: bool = True) -> Starlette:
         async with session_manager.run():
             yield
 
+    mounted: ASGIApp = handle_mcp
+    middleware: list[Middleware] = []
+    if token_verifier is not None:
+        # Order matters: authenticate, publish the result to the request context, then
+        # require it. `RequireAuthMiddleware` answers 401 before the MCP handler runs,
+        # so an unauthenticated call never reaches the Router at all.
+        #
+        # No `resource_metadata_url`, so the `WWW-Authenticate` header carries RFC 6750's
+        # `error`/`error_description` but not RFC 9728's `resource_metadata` pointer. A
+        # client cannot discover where to get a token from the 401 alone; here it is
+        # provisioned with one out of band (Vault, SPIRE). Serving that discovery would
+        # mean publishing a protected-resource metadata document, which is a deployment
+        # decision this harness does not make for an operator.
+        mounted = RequireAuthMiddleware(handle_mcp, required_scopes=[])
+        middleware = [
+            Middleware(AuthenticationMiddleware, backend=BearerAuthBackend(token_verifier)),
+            Middleware(AuthContextMiddleware),
+        ]
+
     return Starlette(
-        routes=[Mount(MCP_MOUNT_PATH, app=handle_mcp)],
+        routes=[Mount(MCP_MOUNT_PATH, app=mounted)],
+        middleware=middleware,
         lifespan=lifespan,
     )
 
 
-async def serve_http(server: Server, *, host: str, port: int) -> None:
+async def serve_http(
+    server: Server,
+    *,
+    host: str,
+    port: int,
+    token_verifier: TokenVerifier | None = None,
+) -> None:
     """Serve the MCP `Server` over HTTP until the process is shut down."""
-    app = build_asgi_app(server)
+    app = build_asgi_app(server, token_verifier=token_verifier)
     config = uvicorn.Config(app, host=host, port=port, log_level="warning")
     await uvicorn.Server(config).serve()
 

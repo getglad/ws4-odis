@@ -36,12 +36,12 @@ def _router(
         action_limits_by_tool=action_limits_by_tool,
         endpoint_id=_FAMILY,
     )
-    router = Router(
-        bundle=factories.bundle(families={_FAMILY: family}),
-        policy_evaluator=factories.AllowAllPolicyEvaluator(),
-        context_factory=factories.context_factory(),
+    router = factories.router(
+        factories.bundle(families={_FAMILY: family}),
+        opa_binary="",
         audit=audit,
-        vendor_clients={_FAMILY: vendor},
+        vendor=vendor,
+        policy_evaluator=factories.AllowAllPolicyEvaluator(),
     )
     return router, family
 

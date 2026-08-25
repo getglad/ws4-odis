@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from odis_harness.mcp_forwarder.identity import RuntimeContextFactory
+from odis_harness.mcp_forwarder.identity import CallerIdentity, RuntimeContextFactory
 from odis_harness.substrate.fixtures import (
     FixtureOriginatingPrincipalProvider,
     FixtureWorkloadIdentityProvider,
@@ -30,7 +30,7 @@ def _factory() -> RuntimeContextFactory:
 
 def _build() -> RuntimeContext:
     return _factory().build(
-        agent_id="mcp-client",
+        caller=CallerIdentity(agent_id="mcp-client"),
         resource_family="jira-prod",
         tool="update_issue",
         bundle=factories.bundle(),
@@ -68,7 +68,7 @@ def test_build_default_task_intent_when_empty() -> None:
 
 def test_build_honors_explicit_task_intent() -> None:
     ctx = _factory().build(
-        agent_id="mcp-client",
+        caller=CallerIdentity(agent_id="mcp-client"),
         resource_family="jira-prod",
         tool="update_issue",
         bundle=factories.bundle(),
@@ -82,14 +82,14 @@ def test_build_principal_is_provider_controlled_regardless_of_agent_id() -> None
     """Security property: a different agent_id never changes the originating principal."""
     factory = _factory()
     ctx_a = factory.build(
-        agent_id="agent-a",
+        caller=CallerIdentity(agent_id="agent-a"),
         resource_family="jira-prod",
         tool="update_issue",
         bundle=factories.bundle(),
         correlation_id="11111111-2222-4333-8444-555555555555",
     )
     ctx_b = factory.build(
-        agent_id="agent-b-claims-admin",
+        caller=CallerIdentity(agent_id="agent-b-claims-admin"),
         resource_family="jira-prod",
         tool="update_issue",
         bundle=factories.bundle(),

@@ -5,6 +5,7 @@ the `main` entry point. Router construction lives in `cli.builders`.
 from __future__ import annotations
 
 import asyncio
+import os
 import sys
 from contextlib import ExitStack
 from dataclasses import dataclass
@@ -37,6 +38,8 @@ _BUNDLE_LOAD_ERRORS = (OSError, BundleSchemaInvalid, BundleSignatureInvalid)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from mcp.server.auth.provider import TokenVerifier
 
     from odis_harness.bundle import Family
     from odis_harness.mcp_forwarder.vendor_client import McpClient
@@ -71,6 +74,31 @@ class SignedBundleSettings:
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
+class InboundAuthSettings:
+    """Trust material for validating the agent's credential on the way in.
+
+    With no keys the MCP surface accepts any caller and every call is attributed to the
+    fallback agent id, so `serve` says so at startup rather than leaving it implicit.
+    """
+
+    key_paths: tuple[Path, ...] = ()
+    issuer: str = ""
+    audience: str = ""
+
+    @property
+    def enabled(self) -> bool:
+        """True when the operator asked for inbound auth in any way at all.
+
+        Any one of the three settings counts, not just the key. Keying this on the key
+        alone made the validation one-directional: a bad key path exited 2, but a
+        *missing* one — issuer and audience set, `ODIS_INBOUND_KEYS` unset because a
+        secret mount had not attached yet — silently served an unauthenticated surface
+        and exited 0. A partial configuration is now a startup failure, never a downgrade.
+        """
+        return bool(self.key_paths or self.issuer or self.audience)
+
+
+@dataclass(frozen=True, kw_only=True, slots=True)
 class ServeSettings:
     bundle: str | None
     opa_binary: str | None
@@ -80,6 +108,7 @@ class ServeSettings:
     signed: bool
     vendor_auth: VendorAuthSettings
     signed_bundle: SignedBundleSettings
+    inbound_auth: InboundAuthSettings
 
 
 def _serve_vendor_factory(settings: VendorAuthSettings) -> Callable[[Family], McpClient]:
@@ -114,9 +143,18 @@ def _run_serve(settings: ServeSettings) -> int:
     if not opa_binary:
         sys.stderr.write("ERROR: no opa binary found. Set ODIS_OPA_BIN or place 'opa' on PATH.\n")
         return 2
+    try:
+        verifier = _build_inbound_verifier(settings.inbound_auth)
+    except _InboundAuthConfigError as exc:
+        # Configuration that would not actually authenticate anyone. Checked here, before
+        # the router is built: in signed mode that build performs a Vault login, bundle
+        # issuance and a vendor-discovery pass that emits audit events for connections it
+        # opened — all of it wasted work for a run that cannot legally serve.
+        sys.stderr.write(f"ERROR: {exc}\n")
+        return 2
     if settings.signed:
-        return _serve_signed(settings, opa_binary)
-    return _serve_local(settings, opa_binary)
+        return _serve_signed(settings, opa_binary, verifier)
+    return _serve_local(settings, opa_binary, verifier)
 
 
 def _validate_vendor_auth(settings: VendorAuthSettings) -> str | None:
@@ -143,7 +181,9 @@ def _leg2_mode(settings: VendorAuthSettings) -> str:
     return "none (Secret-Zero)"
 
 
-def _serve_local(settings: ServeSettings, opa_binary: str) -> int:
+def _serve_local(
+    settings: ServeSettings, opa_binary: str, verifier: TokenVerifier | None
+) -> int:
     bundle_path = _resolve_bundle_path(settings.bundle)
     vendor_client_factory = _serve_vendor_factory(settings.vendor_auth)
 
@@ -165,15 +205,24 @@ def _serve_local(settings: ServeSettings, opa_binary: str) -> int:
                 f"bundle:     {bundle_path}\n"
                 f"opa_binary: {opa_binary}\n"
                 f"leg-2 auth: {_leg2_mode(settings.vendor_auth)}\n"
+                f"inbound:    {_inbound_mode(settings.inbound_auth)}\n"
                 f"listening:  http://{settings.host}:{settings.port}/mcp\n"
             )
-            await router.serve(host=settings.host, port=settings.port)
+            if settings.inbound_auth.enabled:
+                sys.stderr.write(f"{_CLEARTEXT_BEARER_WARNING}\n")
+            await router.serve(
+                host=settings.host,
+                port=settings.port,
+                token_verifier=verifier,
+            )
             return 0
 
     return asyncio.run(_serve())
 
 
-def _serve_signed(settings: ServeSettings, opa_binary: str) -> int:
+def _serve_signed(
+    settings: ServeSettings, opa_binary: str, verifier: TokenVerifier | None
+) -> int:
     """Serve a Vault-issued, offline-verified signed bundle. Fails closed."""
     signed = settings.signed_bundle
     vault_addr = signed.vault_addr
@@ -250,9 +299,16 @@ def _serve_signed(settings: ServeSettings, opa_binary: str) -> int:
                 f"mode:       signed (Vault {signed.vault_addr}, issue {signed.vault_issue_path})\n"
                 f"opa_binary: {opa_binary}\n"
                 f"leg-2 auth: {_leg2_mode(settings.vendor_auth)}\n"
+                f"inbound:    {_inbound_mode(settings.inbound_auth)}\n"
                 f"listening:  http://{settings.host}:{settings.port}/mcp\n"
             )
-            await router.serve(host=settings.host, port=settings.port)
+            if settings.inbound_auth.enabled:
+                sys.stderr.write(f"{_CLEARTEXT_BEARER_WARNING}\n")
+            await router.serve(
+                host=settings.host,
+                port=settings.port,
+                token_verifier=verifier,
+            )
             return 0
 
     return asyncio.run(_serve())
@@ -370,6 +426,33 @@ def serve(
     audit_output: str = typer.Option("stderr", envvar="ODIS_AUDIT_OUTPUT", help=_AUDIT_HELP),
     host: str = typer.Option("127.0.0.1", help="bind host"),
     port: int = typer.Option(8765, help="bind port"),
+    inbound_key: list[Path] = typer.Option(
+        [],
+        "--inbound-key",
+        envvar="ODIS_INBOUND_KEYS",
+        help=(
+            "PEM public key that signs agent credentials; repeatable. Supplying at least "
+            "one turns on inbound authentication: callers must present a valid workload "
+            "JWT and the agent identity comes from its subject, and --inbound-issuer "
+            "and --inbound-audience become required. Without it the MCP surface accepts "
+            f"any caller. Several paths in the env var are separated by {os.pathsep!r}"
+        ),
+    ),
+    inbound_issuer: str = typer.Option(
+        "",
+        "--inbound-issuer",
+        envvar="ODIS_INBOUND_ISSUER",
+        help="required `iss` on agent credentials; mandatory with --inbound-key",
+    ),
+    inbound_audience: str = typer.Option(
+        "",
+        "--inbound-audience",
+        envvar="ODIS_INBOUND_AUDIENCE",
+        help=(
+            "required `aud` on agent credentials — this Router's own identifier; "
+            "mandatory with --inbound-key"
+        ),
+    ),
     signed: bool = typer.Option(
         False,
         "--signed",
@@ -475,9 +558,87 @@ def serve(
             vault_issue_path=vault_issue_path,
             bundle_pubkey_file=bundle_pubkey_file,
         ),
+        inbound_auth=InboundAuthSettings(
+            key_paths=tuple(inbound_key),
+            issuer=inbound_issuer,
+            audience=inbound_audience,
+        ),
     )
     raise typer.Exit(_run_serve(settings))
 
+
+
+def _build_inbound_verifier(settings: InboundAuthSettings) -> TokenVerifier | None:
+    """Build the inbound credential verifier, or None when no trust material is given.
+
+    Raises `_InboundAuthConfigError` on anything that would leave the surface looking
+    protected while not being — an unreadable or malformed key, a private key supplied by
+    mistake, a partial configuration — or, in the other direction, anything that would
+    silently serve unauthenticated when the operator asked for auth. Called from
+    `_run_serve` before the router is built, so a misconfiguration exits non-zero having
+    opened no connection and issued no bundle.
+    """
+    if not settings.enabled:
+        return None
+    from odis_harness.mcp_forwarder.inbound_auth import (  # noqa: PLC0415
+        UntrustworthyKeyError,
+        WorkloadJwtVerifier,
+        load_public_keys,
+    )
+
+    missing = [
+        name
+        for name, value in (
+            ("--inbound-key", settings.key_paths),
+            ("--inbound-issuer", settings.issuer),
+            ("--inbound-audience", settings.audience),
+        )
+        if not value
+    ]
+    if missing:
+        # All three or none. Without the bindings the verifier checks the signature and
+        # nothing else, so any token that key ever signed — including one minted for a
+        # different service — replays here as an agent credential. Without the key there
+        # is no verifier at all, and the bindings the operator did supply say plainly
+        # that they expected one.
+        message = (
+            f"inbound auth needs {' and '.join(missing)}. Configure --inbound-key, "
+            "--inbound-issuer and --inbound-audience together, or none of them: a "
+            "partial configuration would serve an unauthenticated surface."
+        )
+        raise _InboundAuthConfigError(message)
+    try:
+        keys = load_public_keys(settings.key_paths)
+    except UntrustworthyKeyError as exc:
+        raise _InboundAuthConfigError(str(exc)) from exc
+    return WorkloadJwtVerifier(
+        public_keys=keys, bound_issuer=settings.issuer, bound_audience=settings.audience
+    )
+
+
+class _InboundAuthConfigError(ValueError):
+    """Inbound-auth configuration that would not actually authenticate anyone."""
+
+
+def _inbound_mode(settings: InboundAuthSettings) -> str:
+    """One line for the startup banner, so an unauthenticated surface is never silent."""
+    if not settings.enabled:
+        return "NONE - any caller accepted, all calls attributed to the fallback agent id"
+    return (
+        f"workload JWT ({len(settings.key_paths)} key(s), iss={settings.issuer}, "
+        f"aud={settings.audience})"
+    )
+
+
+#: Printed whenever inbound auth is on. `serve` speaks plain HTTP and terminates no TLS,
+#: so the bearer crosses the wire in the clear: anyone on-path can read it and replay it
+#: until it expires. Stated at startup rather than left to the docs, because a Router
+#: that authenticates looks protected and this is the assumption that makes it not.
+_CLEARTEXT_BEARER_WARNING = (
+    "WARNING:    serves plain HTTP — the bearer is readable and replayable by anyone "
+    "on-path.\n"
+    "            Terminate TLS in front of this before it leaves the loopback interface."
+)
 
 def main(argv: list[str] | None = None) -> int:
     """Console-script / `python -m` entry: run the Typer app, return its exit code.

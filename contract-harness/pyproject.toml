@@ -17,7 +17,11 @@ dependencies = [
     "jsonschema>=4.23",
     "pyyaml>=6.0.2",
     "structlog>=25.1",
-    "mcp>=1.27.1",
+    # Capped below 2. `mcp_forwarder` imports the SDK's auth internals
+    # (`server.auth.middleware.bearer_auth`, `server.auth.provider`), and 2.x already
+    # renames client symbols the example agent uses — a floor alone resolves a major
+    # that does not fit. Raise the cap deliberately, with the migration.
+    "mcp>=1.27.1,<2",
     "cryptography>=48.0.0",
     "pyjwt[crypto]>=2.13.0",
     "pydantic>=2.0",

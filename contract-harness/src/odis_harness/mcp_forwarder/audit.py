@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from odis_harness.audit.sink import AuditSink
     from odis_harness.bundle import Bundle, Family
     from odis_harness.contracts import RuntimeContext
+    from odis_harness.mcp_forwarder.identity import CallerIdentity
 
 
 ForwardMode = Literal["policy_allow", "permissive"]
@@ -71,7 +72,7 @@ def audit_forward(  # noqa: PLR0913 - audit event has many independent kw-only f
                 "vendor_endpoint_id": family.vendor_mcp.endpoint_id,
                 "decision_id": decision_id,
                 "mode": mode,
-                **_actor(runtime_context),
+                **_actor(runtime_context, None),
             },
         )
     )
@@ -86,6 +87,7 @@ def audit_refused(  # noqa: PLR0913 - audit event has many independent kw-only f
     tool: str,
     reason_code: ReasonCode,
     runtime_context: RuntimeContext | None,
+    caller: CallerIdentity | None = None,
 ) -> None:
     """Emit `odis.mcp.forward_refused` with a structured reason_code.
 
@@ -105,7 +107,7 @@ def audit_refused(  # noqa: PLR0913 - audit event has many independent kw-only f
             resource_family=family_name,
             reason_code=reason_code,
             user_id=_principal_id(runtime_context),
-            extra={"tool": tool, **_actor(runtime_context)},
+            extra={"tool": tool, **_actor(runtime_context, caller)},
         )
     )
 
@@ -123,23 +125,34 @@ def _principal_id(ctx: RuntimeContext | None) -> str | None:
     return value if isinstance(value, str) else None
 
 
-def _actor(ctx: RuntimeContext | None) -> dict[str, Any]:
+def _actor(ctx: RuntimeContext | None, caller: CallerIdentity | None) -> dict[str, Any]:
     """The acting identities ODIS-CC-02 requires on every logged action.
 
     Nested under one `actor` key rather than splatted as bare keys, so it cannot collide
     with or be shadowed by another `extra` entry.
 
     CC-02 asks for the logical agent, the executing runtime instance and the
-    authenticated originating principal. Two of the three are real here; the runtime
-    instance is absent because the Router authenticates no inbound credential, so it has
-    nothing that identifies *this* run of the agent as opposed to the agent generally.
-    Recorded as absent rather than filled with a placeholder.
+    authenticated originating principal. The agent and the principal are real; the
+    runtime instance is absent, because nothing the Router receives distinguishes *this*
+    run of an agent from the agent generally — the verified credential's subject names
+    the workload, and no per-instance claim is extracted from it. Recorded as absent
+    rather than filled with a placeholder.
     """
     if ctx is None:
-        # A refusal at the protocol boundary, before routing resolved a family. There is
-        # no identity context for the call, and inventing one would mean calling the
-        # identity providers on agent-controlled input that is already being rejected.
-        return {}
+        if caller is None:
+            # A call the Router could not attribute at all: no identity context and no
+            # verified subject. An event with no actor is the honest record.
+            return {}
+        # A refusal at the protocol boundary, before routing resolved a family. The
+        # originating principal is unresolved and stays that way: finding it means
+        # calling the identity providers on input already being rejected.
+        #
+        # The agent entry is emitted even when `caller` is the unauthenticated fallback
+        # rather than a verified subject. It carries `UNVERIFIED_AGENT_TYPE`, which says
+        # so, and a forwarded call in the same mode already records exactly this — so
+        # dropping it here would only make one event shape differ from another for a
+        # distinction the `type` field already draws.
+        return {"actor": {"agent": {"id": caller.agent_id, "type": caller.agent_type}}}
     return {
         "actor": {
             "agent": dict(ctx.agent),

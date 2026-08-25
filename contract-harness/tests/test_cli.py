@@ -9,6 +9,7 @@ from pathlib import Path
 import httpx
 import pytest
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import dsa, ec
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from odis_harness.bundle.loader import BundleSignatureInvalid
@@ -369,3 +370,156 @@ def test_serve_signed_fails_closed_on_non_ascii_input_file(
     )
     assert exit_code == 2
     assert "cannot read signed-mode input file" in stderr
+
+
+# -- inbound-auth configuration -----------------------------------------------
+# Every branch below exists to make a misconfigured Router fail loudly instead of serving
+# something that looks protected and is not. They are only reachable through the CLI, so
+# without these the whole set could regress into a request-time 500 unnoticed.
+
+
+def _write_key(tmp_path: Path, name: str, pem: bytes) -> str:
+    path = tmp_path / name
+    path.write_bytes(pem)
+    return str(path)
+
+
+def _ec_keypair(tmp_path: Path) -> tuple[str, str]:
+    """A usable public key and the matching private key, both on disk."""
+    private = ec.generate_private_key(ec.SECP256R1())
+    public = _write_key(
+        tmp_path,
+        "public.pem",
+        private.public_key().public_bytes(
+            serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
+        ),
+    )
+    secret = _write_key(
+        tmp_path,
+        "private.pem",
+        private.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        ),
+    )
+    return public, secret
+
+
+@pytest.mark.requires_opa
+@pytest.mark.parametrize(
+    ("key_name", "expected"),
+    [
+        pytest.param("absent.pem", "cannot read inbound key", id="missing file"),
+        pytest.param("garbage.pem", "not a usable PEM public key", id="not a PEM at all"),
+    ],
+)
+def test_serve_refuses_unusable_inbound_key_material(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    opa_binary: str,
+    key_name: str,
+    expected: str,
+) -> None:
+    if key_name != "absent.pem":
+        _write_key(tmp_path, key_name, b"-----BEGIN PUBLIC KEY-----\nnope\n")
+    exit_code, _, stderr = _run(
+        capsys,
+        "serve",
+        "--opa-binary",
+        opa_binary,
+        "--inbound-key",
+        str(tmp_path / key_name),
+        "--inbound-issuer",
+        "https://spire.example/",
+        "--inbound-audience",
+        "odis-router",
+    )
+    assert exit_code == 2
+    assert expected in stderr
+
+
+@pytest.mark.requires_opa
+def test_serve_refuses_a_private_key_as_trust_material(
+    capsys: pytest.CaptureFixture[str], tmp_path: Path, opa_binary: str
+) -> None:
+    """A one-character path slip would otherwise park the issuer's signing key here."""
+    _, secret = _ec_keypair(tmp_path)
+    exit_code, _, stderr = _run(
+        capsys,
+        "serve",
+        "--opa-binary",
+        opa_binary,
+        "--inbound-key",
+        secret,
+        "--inbound-issuer",
+        "https://spire.example/",
+        "--inbound-audience",
+        "odis-router",
+    )
+    assert exit_code == 2
+    assert "is a PRIVATE key" in stderr
+
+
+@pytest.mark.requires_opa
+def test_serve_refuses_a_key_that_cannot_verify_any_allowed_algorithm(
+    capsys: pytest.CaptureFixture[str], tmp_path: Path, opa_binary: str
+) -> None:
+    """A DSA key parses as a public key but signs nothing on the allowlist.
+
+    Accepting it would mean a surface that starts clean and then refuses every caller.
+    """
+    dsa_key = dsa.generate_private_key(key_size=2048).public_key()
+    path = _write_key(
+        tmp_path,
+        "dsa.pem",
+        dsa_key.public_bytes(
+            serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
+        ),
+    )
+    exit_code, _, stderr = _run(
+        capsys,
+        "serve",
+        "--opa-binary",
+        opa_binary,
+        "--inbound-key",
+        path,
+        "--inbound-issuer",
+        "https://spire.example/",
+        "--inbound-audience",
+        "odis-router",
+    )
+    assert exit_code == 2
+    assert "cannot verify" in stderr
+
+
+@pytest.mark.requires_opa
+@pytest.mark.parametrize(
+    ("extra_argv", "missing"),
+    [
+        pytest.param(
+            ["--inbound-key", "KEY"], "--inbound-issuer", id="key without bindings"
+        ),
+        pytest.param(
+            ["--inbound-issuer", "https://spire.example/", "--inbound-audience", "r"],
+            "--inbound-key",
+            id="bindings without a key",
+        ),
+    ],
+)
+def test_serve_refuses_a_partial_inbound_auth_configuration(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    opa_binary: str,
+    extra_argv: list[str],
+    missing: str,
+) -> None:
+    """Both directions. Serving unauthenticated because a setting was dropped is the
+    failure this refuses — a key with no bindings accepts any token that key ever signed,
+    and bindings with no key silently serves an open surface.
+    """
+    public, _ = _ec_keypair(tmp_path)
+    argv = [arg if arg != "KEY" else public for arg in extra_argv]
+    exit_code, _, stderr = _run(capsys, "serve", "--opa-binary", opa_binary, *argv)
+    assert exit_code == 2
+    assert missing in stderr

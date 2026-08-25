@@ -25,7 +25,7 @@ from odis_harness.bundle import (
     VendorMcp,
 )
 from odis_harness.contracts import AuthzRequest, EnvelopeValidator, RuntimeContext
-from odis_harness.mcp_forwarder.identity import RuntimeContextFactory
+from odis_harness.mcp_forwarder.identity import CallerIdentity, RuntimeContextFactory
 from odis_harness.mcp_forwarder.policy import PolicyDecision, PolicyEvaluator
 from odis_harness.mcp_forwarder.router import Router
 from odis_harness.mcp_forwarder.vendor_client import (
@@ -199,7 +199,7 @@ def context_factory() -> RuntimeContextFactory:
 def runtime_context() -> RuntimeContext:
     """A `RuntimeContext` as the Router builds one, for testing the audit emitters."""
     return context_factory().build(
-        agent_id="mcp-client",
+        caller=CallerIdentity(agent_id="mcp-client"),
         resource_family=FAMILY_NAME,
         tool=TOOL_NAME,
         bundle=bundle(),
@@ -213,18 +213,25 @@ def router(
     opa_binary: str,
     audit: AuditSink | None = None,
     vendor: McpClient | None = None,
+    policy_evaluator: PolicyEvaluator | None = None,
 ) -> Router:
     """A `Router` over `routed`, serving `vendor` for every family it declares.
 
     `routed` takes either a single `Family`, which is wrapped in a default one-family
-    bundle, or a whole `Bundle`.
+    bundle, or a whole `Bundle`. Pass `policy_evaluator=AllowAllPolicyEvaluator()` for a
+    test whose subject is a later stage than the gate, which also drops the `opa`
+    dependency — `opa_binary` is then unused.
     """
     resolved = routed if isinstance(routed, Bundle) else bundle(routed)
     single = vendor if vendor is not None else in_memory_vendor()
     vendor_clients = {name: single for name, _ in resolved.families_iter()}
     return Router(
         bundle=resolved,
-        policy_evaluator=PolicyEvaluator(opa_binary=opa_binary),
+        policy_evaluator=(
+            policy_evaluator
+            if policy_evaluator is not None
+            else PolicyEvaluator(opa_binary=opa_binary)
+        ),
         context_factory=context_factory(),
         audit=audit if audit is not None else audit_sink(),
         vendor_clients=vendor_clients,
