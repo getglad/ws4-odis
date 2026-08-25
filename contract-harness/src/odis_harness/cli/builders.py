@@ -153,9 +153,10 @@ async def build_router_from_bundle(
 
 
 async def establish_leg2_sessions(clients: Mapping[str, McpClient]) -> None:
-    """Named boot phase (DL-2 / REQ-9.8): eagerly prime each bridged vendor's leg-2
-    session after loading the bundle and before discovery — so the later `tools/list`
-    reuses the primed token (one handshake per vendor). Establishes concurrently
+    """Named boot phase: prime each bridged vendor's leg-2 session.
+
+    Runs after the bundle loads and before discovery, so discovery's own `tools/list`
+    reuses the primed token — one handshake per vendor. Establishes concurrently
     (`asyncio.gather`), mirroring discovery's fan-out.
 
     Resilient + fail-closed: a client that fails to establish is logged and that

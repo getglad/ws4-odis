@@ -86,7 +86,10 @@ class SupportsSessionEstablish(Protocol):
     call/list surface, and `InMemoryMcpClient` need not grow this method). At
     boot the Router establishes leg-2 sessions for clients that satisfy this
     Protocol (`HttpMcpClient` with a `BridgeAuth`), priming one token per family
-    before discovery so the later `tools/list` reuses it (DL-2 / REQ-9.8).
+    before discovery, so discovery's own `tools/list` reuses it instead of paying the
+    exchange itself. Only `BridgeAuth` primes — an RFC 8693 exchange against the token
+    broker, machine-to-machine. The interactive OAuth path (`oauth.py`) is deliberately
+    not primed here.
     """
 
     async def establish(self) -> str | None:

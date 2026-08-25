@@ -4,10 +4,11 @@ ODIS terminology: this is the Router's policy engine (APF Phase 1 calls it the
 RPV). The evaluator uses the low-level `opa_eval` primitive and operates on a
 `Bundle`'s per-family Rego string.
 
-`require_review` and other non-allow/deny decision branches are out of scope
-for the forwarder's first iteration; the evaluator returns whatever decision
-string the Rego produces and the Router treats anything other than `allow`
-as a refusal.
+The evaluator returns whatever `decision` string the Rego produces, and the Router
+treats anything other than `allow` as a refusal. So a policy that answers
+`require_review` — or any third branch — refuses, and is indistinguishable from a
+`deny` at the Router and in the audit trail. Distinguishing them needs a decision
+vocabulary the Router acts on rather than a two-way `allow`/not-`allow` test.
 """
 
 from __future__ import annotations

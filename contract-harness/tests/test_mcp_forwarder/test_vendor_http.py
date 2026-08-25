@@ -1,6 +1,6 @@
-"""odis-mcp-forwarder — HttpMcpClient: real vendor MCP client over HTTP.
+"""HttpMcpClient — the real vendor MCP client, over HTTP.
 
-The client-transport counterpart to Phase D's server transport. Tested against
+The client-transport counterpart to `transports.py`. Tested against
 a real vendor MCP server (a trivial SDK Server) bound to a loopback port.
 """
 

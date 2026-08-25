@@ -31,7 +31,8 @@ if TYPE_CHECKING:
 
 _LOG = structlog.get_logger(__name__)
 
-#: Leg-2 tokens are short-lived (REQ-9.2/9.7); 5 min mirrors the workload-JWT TTL.
+#: Leg-2 tokens are short-lived, and re-minted before expiry rather than long-lived;
+#: 5 min mirrors the workload-JWT TTL.
 _LEG2_TTL = timedelta(minutes=5)
 #: The Router is the OAuth client subject of the exchanged token.
 _ROUTER_SUBJECT = "odis-router"

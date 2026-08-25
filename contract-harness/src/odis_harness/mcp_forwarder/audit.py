@@ -88,6 +88,7 @@ def audit_refused(  # noqa: PLR0913 - audit event has many independent kw-only f
     reason_code: ReasonCode,
     runtime_context: RuntimeContext | None,
     caller: CallerIdentity | None = None,
+    detail: str | None = None,
 ) -> None:
     """Emit `odis.mcp.forward_refused` with a structured reason_code.
 
@@ -107,7 +108,11 @@ def audit_refused(  # noqa: PLR0913 - audit event has many independent kw-only f
             resource_family=family_name,
             reason_code=reason_code,
             user_id=_principal_id(runtime_context),
-            extra={"tool": tool, **_actor(runtime_context, caller)},
+            extra={
+                "tool": tool,
+                **({} if detail is None else {"detail": detail}),
+                **_actor(runtime_context, caller),
+            },
         )
     )
 

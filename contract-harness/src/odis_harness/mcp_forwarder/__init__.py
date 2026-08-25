@@ -1,11 +1,17 @@
-"""odis-mcp-forwarder — Router building block (ODIS canonical).
+"""The Router — an MCP policy-forwarder, one candidate implementation of part of the
+ODIS Layer-3 governance checkpoint.
 
-The Router exposes an MCP server toward the agent (HTTP transport per the MCP
-spec), evaluates each tools/call against the signed bundle's policy via the
-policy engine + action-limit enforcement, and forwards approved calls to the
-vendor MCP server resolved from the bundle's routing entry. Vendor MCP servers
-hold their own credentials at their own deploy time; the Router never sees a
-provider bearer.
+Part, and candidate, both deliberately: ODIS is an unratified draft, and three Layer-3
+Core MUSTs (velocity limits, revocation latency, kill switch) are absent here. See
+`docs/odis-conformance.md`.
+
+The Router exposes an MCP server toward the agent (HTTP transport per the MCP spec),
+evaluates a governed `tools/call` against the bundle's policy via the policy engine plus
+action-limit enforcement, and forwards approved calls to the vendor MCP server resolved
+from the bundle's routing entry. A tool the family does not govern is refused under
+`strict`, and under `permissive` is forwarded with no policy evaluated at all — audited
+as such. Vendor MCP servers hold their own credentials at their own deploy time; the
+Router never sees a provider bearer.
 """
 
 from __future__ import annotations

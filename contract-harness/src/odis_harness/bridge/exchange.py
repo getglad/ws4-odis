@@ -5,7 +5,7 @@ SHORT-LIVED, audience-scoped bearer on every request (MCP 2025-11-25 Authorizati
 That bearer is obtained via the **ODIS Bridge**: an RFC 8693 token exchange of the
 agent's Passport identity (the workload JWT) for a vendor-`audience`-scoped
 downstream access token (RFC 8707 Resource Indicators). It is NOT the agent's
-inbound token re-presented — the no-token-passthrough rule (REQ-9.4) means the
+inbound token re-presented — the no-token-passthrough rule means the
 leg-2 token is freshly minted/exchanged and distinct from both the caller's token
 and the vendor→provider credential.
 
@@ -104,7 +104,7 @@ class BridgeAuth(httpx.Auth):
         return self._audience
 
     async def establish(self) -> None:
-        """Eagerly prime the cached leg-2 token (the boot-time handshake, DL-2).
+        """Eagerly prime the cached leg-2 token (the boot-time handshake).
 
         Idempotent: delegates to `_current_token`, so it exchanges once when the
         cache is cold and is a no-op when the cached token is still fresh. Lets the

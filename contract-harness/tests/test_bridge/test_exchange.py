@@ -248,7 +248,7 @@ async def test_bridge_auth_repr_hides_bearer() -> None:
 
 
 async def test_establish_primes_token_with_a_single_exchange() -> None:
-    """The eager handshake (DL-2): establish() exchanges exactly once."""
+    """The eager handshake: establish() exchanges exactly once."""
     exchanger = _StubExchanger(expiries=[datetime.now(UTC) + timedelta(minutes=5)])
     auth = BridgeAuth(
         subject_token_provider=lambda: "agent-jwt",

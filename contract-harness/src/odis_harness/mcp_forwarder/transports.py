@@ -1,8 +1,10 @@
 """HTTP transport for the Router's MCP server.
 
-HTTP only (Streamable HTTP per the MCP spec) — see [[http-only-transport]].
-Any standard MCP client (Inspector, Claude Code, Cursor) connects to the
-server's URL with no special handling.
+HTTP only (Streamable HTTP per the MCP spec). No stdio: the Router is a network
+chokepoint an agent is routed *through*, not a subprocess it launches.
+Any standard MCP client (Inspector, Claude Code, Cursor) connects to the server's URL
+with no special handling — unless `serve --inbound-key` configured a token verifier, in
+which case the client must also present a bearer the Router accepts.
 
 `build_asgi_app` constructs the Starlette app (testable / mountable);
 `serve_http` runs it under uvicorn until shutdown.

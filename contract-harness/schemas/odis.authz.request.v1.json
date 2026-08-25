@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://apf.local/schemas/odis.authz.request.v1.json",
+  "$id": "urn:odis:contract-harness:schemas:odis.authz.request.v1",
   "title": "odis.authz.request.v1",
   "description": "Authorization request submitted to the RPV. Mirrors APF \u00a76.2; built by the MCP adapter from a trusted runtime context plus structured tool arguments. Subject fields come from the runtime context, not from caller-supplied tool args.",
   "type": "object",

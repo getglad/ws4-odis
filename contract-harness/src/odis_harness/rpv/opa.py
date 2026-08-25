@@ -84,7 +84,7 @@ def opa_eval(
     input_payload: Mapping[str, Any],
     query: str = "data.odis_policy.decision",
 ) -> Any:  # noqa: ANN401 — Rego decision shape varies by query
-    """Evaluate `query` against `rego_path` with `input_payload` as `--input`.
+    """Evaluate `query` against `rego_path` with `input_payload` on stdin (`--stdin-input`).
 
     Returns the parsed result `value`. Raises `OpaEvalError` if the binary
     exits non-zero, returns no expressions, or returns unparseable JSON.

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://apf.local/schemas/odis.audit.event.v1.json",
+  "$id": "urn:odis:contract-harness:schemas:odis.audit.event.v1",
   "title": "odis.audit.event.v1",
   "description": "Common audit event. Mirrors APF \u00a76.5; `event_type` accepts either the APF enum verbatim OR the `odis.<ns>.<name>` extension namespace. Runtime taxonomy enforcement (see audit_taxonomy.is_valid_event_type) is layered on top of the JSON Schema pattern.",
   "type": "object",

@@ -1,10 +1,14 @@
 """`policy_digest` — sha256 over the canonical-serialized bundle.
 
-The digest covers the *entire* loaded bundle (metadata + policy + routing +
-governed tools + per-family `default_mode`). Audit events stamp this digest so
-the auditor can reconcile decisions against the exact bundle in force at the
-time of the call, including the routing component (defense against the
-mix-and-match attack — see [[bundle-signed-routing-and-policy]]).
+The digest covers the *entire* loaded bundle (metadata + policy + routing + governed
+tools + per-family `default_mode`), so policy and routing are bound together: a policy
+re-pointed at a different vendor produces a different digest.
+
+It *detects*, it does not prevent. Nothing compares it to a reference value — it is
+stamped on every envelope so an auditor can reconcile a decision against the exact grant
+that authorized it. Prevention is the signature over the whole payload, and only the
+Vault path verifies that for real; `serve`/`demo` inject `FixtureSignatureVerifier`,
+which accepts anything.
 """
 
 from __future__ import annotations

@@ -61,7 +61,7 @@ class HttpMcpClient:
     auth: httpx.Auth | None = None
 
     async def establish(self) -> str | None:
-        """Eagerly prime the leg-2 session (the boot-time handshake, DL-2/REQ-9.8).
+        """Eagerly prime the leg-2 session (the boot-time handshake).
 
         Satisfies `SupportsSessionEstablish`, returning the established audience
         (RFC 8707) when a token is minted, else `None`. When `auth` is a `BridgeAuth`,

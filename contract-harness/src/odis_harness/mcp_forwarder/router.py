@@ -187,8 +187,18 @@ class Router:
         if decision.obligations or declared_action_limits:
             try:
                 enforce_action_limits(tool, arguments, decision.obligations)
-            except ActionLimitViolation:
-                self._refuse(runtime_context, family_name, tool, ReasonCode.OBLIGATION_VIOLATION)
+            except ActionLimitViolation as exc:
+                # Carry the enforcer's detail: it names the argument or value that
+                # failed, and a bare `obligation_violation` leaves an operator unable to
+                # tell a forbidden field from an out-of-scope project. It goes to the
+                # audit record only — the agent still gets the reason code alone.
+                self._refuse(
+                    runtime_context,
+                    family_name,
+                    tool,
+                    ReasonCode.OBLIGATION_VIOLATION,
+                    detail=str(exc),
+                )
             except NotImplementedError:
                 # The bundle declared this tool as policed, but the harness has no
                 # action-limit enforcer for it. Fail closed (deny) rather than
@@ -281,7 +291,14 @@ class Router:
         family_name: str,
         tool: str,
         reason_code: ReasonCode,
+        detail: str | None = None,
     ) -> NoReturn:
+        """Audit the refusal, then raise. `detail` is audited, never returned.
+
+        `McpRefusal` carries only the reason code, so nothing here reaches the agent —
+        an explanation of *why* a constraint failed is exactly the kind of detail that
+        helps a caller probe for the constraint's shape.
+        """
         audit_refused(
             self.audit,
             correlation_id=runtime_context.correlation_id,
@@ -290,6 +307,7 @@ class Router:
             tool=tool,
             reason_code=reason_code,
             runtime_context=runtime_context,
+            detail=detail,
         )
         raise McpRefusal(reason_code)
 

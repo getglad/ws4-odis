@@ -1,7 +1,10 @@
-"""odis-bundle-routing — the signed bundle's schema, dataclasses, loader, and digest.
+"""The Authority Grant — the bundle's schema, dataclasses, digest, and the two ways
+to obtain one: a local file (`loader`) or a Vault-issued, Ed25519-signed grant
+(`vault_client` to fetch, `vault_verifier` to check it offline).
 
 The signed bundle is a single artifact carrying policy + routing + governed tools +
-per-family `default_mode` under one signature (see [[bundle-signed-routing-and-policy]]).
+per-family `default_mode` under one signature, so policy and routing cannot be
+mixed and matched (see `digest.py`).
 The Router consumes the loaded bundle to resolve `<family>.<tool>` MCP calls to
 vendor MCP server endpoints and to gate calls via the bundle's policy.
 """

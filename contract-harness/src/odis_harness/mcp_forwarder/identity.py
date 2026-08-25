@@ -7,9 +7,13 @@ providers, never from agent-supplied input.
 fields including `originating_authorization_ref`, `attenuation_profile_ref` and integrity
 protection, and this carries five. It is the harness's own per-call identity envelope.
 
-Security property: `originating_principal` always comes from the provider. The `agent_id`
-is agent-claimed but only becomes a runtime identity because the workload-identity
-provider issues a credential for it — the provider is the gate, not the agent.
+Security property: neither identity comes from the tool-call payload.
+`originating_principal` always comes from its provider. `agent_id` comes from the
+`CallerIdentity` the transport resolved — the subject of a validated credential where one
+was presented, and the unauthenticated fallback otherwise, with `agent.type` recording
+which. The workload-identity provider is still called and can refuse, so it remains a
+gate; it is not the *source* of the id, because a provider that substituted one would
+have its substitution recorded as though it had arrived on the caller's credential.
 """
 
 from __future__ import annotations

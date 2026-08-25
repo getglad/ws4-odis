@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://apf.local/schemas/odis.runtime.context.v1.json",
+  "$id": "urn:odis:contract-harness:schemas:odis.runtime.context.v1",
   "title": "odis.runtime.context.v1",
   "description": "Trusted runtime context envelope. Mirrors APF \u00a76.1; populated by the substrate, consumed by the MCP adapter when building an authz request. Caller-supplied subject fields are discarded by the substrate; nothing in this envelope is sourced from the agent's call payload.",
   "type": "object",
@@ -52,7 +52,7 @@
     },
     "agent": {
       "$ref": "#/$defs/Identity",
-      "description": "Source: WorkloadIdentityProvider (apf-openshell-containment), not the agent payload."
+      "description": "The caller identity the Router acted for. On an authenticated surface `id` is the subject of a credential the Router validated; otherwise it is the unauthenticated fallback. `type` says which, so a consumer never has to guess. Never taken from the tool-call payload."
     },
     "task_intent": {
       "type": "string",

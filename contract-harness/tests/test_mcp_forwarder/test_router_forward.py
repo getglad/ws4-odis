@@ -81,6 +81,18 @@ async def test_forward_obligation_violation_does_not_call_vendor(opa_binary: str
     assert vendor.calls == []
     assert audit.event_types == ["odis.mcp.forward_refused"]
 
+    # The enforcer's detail reaches the operator. A bare `obligation_violation` cannot
+    # distinguish a forbidden field from an out-of-scope project, and the enforcer
+    # already knows which it was.
+    detail = audit.events[0].extra["detail"]
+    assert "summary" in detail
+
+    # And only the operator: the agent gets the reason code, never the explanation.
+    # Telling a caller *which* field tripped the constraint hands it the shape of the
+    # constraint, one refused call at a time.
+    assert str(exc.value.reason_code) == str(exc.value)
+    assert "summary" not in str(exc.value)
+
 
 async def test_forward_vendor_unreachable_emits_refused(opa_binary: str) -> None:
     audit = factories.CapturingAuditSink()

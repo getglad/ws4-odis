@@ -1,4 +1,4 @@
-"""Tests for `cli.builders` — the leg-2 session establish boot phase (the DL-2 leg-2 boot phase).
+"""Tests for `cli.builders` — the leg-2 session establish boot phase.
 
 `build_router_from_bundle` runs a named "establish leg-2 sessions" phase between
 building the per-family vendor clients and populating discovery: every client that is
@@ -84,7 +84,10 @@ class _EstablishingClient:
 
 async def test_establish_phase_is_resilient_and_primes_other_families() -> None:
     """One family's establish() failure is logged + degraded; others still prime,
-    and boot continues to a constructed Router (DL-2 resilience)."""
+    and boot continues to a constructed Router. `establish()` reaches the *token broker*,
+    not the vendor, so a broker that is down must not prevent the Router from serving —
+    its bridged families then fail closed per call, which is a different outcome from
+    refusing to boot at all."""
     failing = _EstablishingClient(raises=True)
     healthy = _EstablishingClient(audience="conf-mcp")
     clients = {"jira-prod": failing, "confluence-prod": healthy}

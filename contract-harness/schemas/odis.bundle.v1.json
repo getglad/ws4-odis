@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://apf.local/schemas/odis.bundle.v1.json",
+  "$id": "urn:odis:contract-harness:schemas:odis.bundle.v1",
   "title": "ODIS signed bundle (policy + routing co-signed)",
   "type": "object",
   "required": ["bundle_id", "bundle_version", "trust_root_id", "families"],
