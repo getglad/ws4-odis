@@ -25,7 +25,9 @@ run = "uv sync --locked"
 [tasks.demo]
 description = "Run the zero-infrastructure Router demo against an in-process Target MCP stub"
 env = { ODIS_AUDIT_OUTPUT = "/tmp/odis-demo-audit.jsonl" }
-run = "odis-harness demo"
+# The grant choice is explicit by design: the example bundle carries no signature, so
+# this demo says it is accepting an unverified one. `demo-signed` is the verified path.
+run = "odis-harness demo --trust-bundle-unverified"
 
 [tasks.test]
 description = "Run the pytest suite (the requires_vault slice runs only if vault is already on PATH; test-all guarantees it)"
@@ -76,8 +78,15 @@ dir = "vault-plugin"
 tools = { go = "1.25" }
 run = "go test ./..."
 
+[tasks.demo-signed]
+description = "Demo with a VAULT-ISSUED grant whose Ed25519 signature is verified offline — same Router, gate and scenarios as `demo`, one axis changed"
+depends = ["build-vault-plugin"]
+tools = { vault = "latest" }
+env = { ODIS_AUDIT_OUTPUT = "/tmp/odis-demo-signed-audit.jsonl" }
+run = "bash vault/demo-signed.sh"
+
 [tasks.smoke-vault]
-description = "Boot dev Vault, provision, issue + offline-verify a bundle (vault auto-provisioned; ODIS_VAULT_BIN overrides)"
+description = "ISSUANCE smoke test (not a demo — no Router, no gate): boot dev Vault, provision, issue + offline-verify a bundle. For a signed grant feeding a real gate, see demo-openshell"
 depends = ["build-vault-plugin"]
 tools = { vault = "latest" }
 run = "bash vault/smoke.sh"
