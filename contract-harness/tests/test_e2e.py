@@ -14,26 +14,28 @@ before the vendor is ever contacted.
 
 from __future__ import annotations
 
-import asyncio
-import contextlib
 from typing import TYPE_CHECKING
 
 import pytest
-import uvicorn
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 from mcp.server.lowlevel import Server
 from mcp.types import TextContent, Tool
 
 from odis_harness.cli import build_router
+from odis_harness.cli.builders import RouterWiring
+from odis_harness.fixtures.signature import FixtureSignatureVerifier
 from odis_harness.mcp_forwarder.server import build_mcp_server
-from odis_harness.mcp_forwarder.transports import MCP_MOUNT_PATH, build_asgi_app
+from odis_harness.mcp_forwarder.transports import (
+    MCP_MOUNT_PATH,
+    build_asgi_app,
+    serving_http,
+)
 from odis_harness.mcp_forwarder.vendor_http import HttpMcpClient
 from tests import factories
 from tests.factories import audit_sink
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
     from pathlib import Path
 
     from starlette.applications import Starlette
@@ -97,24 +99,6 @@ def _vendor_app() -> Starlette:
     return build_asgi_app(server)
 
 
-@contextlib.asynccontextmanager
-async def _running(app: Starlette, port: int) -> AsyncIterator[None]:
-    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="error"))
-    task = asyncio.create_task(server.serve())
-    try:
-        for _ in range(100):
-            if server.started:
-                break
-            await asyncio.sleep(0.05)
-        if not server.started:
-            message = f"server on :{port} did not start"
-            raise RuntimeError(message)
-        yield
-    finally:
-        server.should_exit = True
-        await task
-
-
 async def test_e2e_full_chain_allow_and_deny(tmp_path: Path, opa_binary: str) -> None:
     vendor_port = factories.free_port()
     router_port = factories.free_port()
@@ -125,17 +109,23 @@ async def test_e2e_full_chain_allow_and_deny(tmp_path: Path, opa_binary: str) ->
         encoding="utf-8",
     )
 
-    async with _running(_vendor_app(), vendor_port):
+    async with serving_http(_vendor_app(), port=vendor_port):
         # Build the Router via the real CLI wiring: HttpMcpClient toward the
         # vendor URL, discovery populated over HTTP.
         router = await build_router(
             bundle_path=bundle_path,
             opa_binary=opa_binary,
             audit=audit_sink(),
-            vendor_client_factory=_http_vendor_factory,
+            signature_verifier=FixtureSignatureVerifier(),
+            wiring=RouterWiring(
+                context_factory=factories.context_factory(),
+                # The real HTTP client, not an in-memory double — this test exists to
+                # prove discovery and forwarding cross a real socket to a real vendor.
+                vendor_client_factory=_http_vendor_factory,
+            ),
         )
         server = build_mcp_server(router, requires_authenticated_caller=False)
-        async with _running(build_asgi_app(server), router_port):
+        async with serving_http(build_asgi_app(server), port=router_port):
             url = f"http://127.0.0.1:{router_port}{MCP_MOUNT_PATH}"
             async with (
                 streamable_http_client(url) as (read, write, _sid),

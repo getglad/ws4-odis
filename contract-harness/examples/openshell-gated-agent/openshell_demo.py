@@ -35,32 +35,39 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import httpx
-import uvicorn
 from mcp.server.lowlevel import Server
 from mcp.types import TextContent, Tool
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
 
     from starlette.applications import Starlette
 
 from odis_harness.bundle.vault_client import VaultBundleClient
 from odis_harness.cli.builders import (
+    RouterWiring,
     SignedBundleSource,
     audit_stream,
     build_audit,
     build_router_signed,
     http_vendor_factory,
     resolve_opa_binary,
+    stub_context_factory,
 )
 from odis_harness.mcp_forwarder.server import build_mcp_server
-from odis_harness.mcp_forwarder.transports import MCP_MOUNT_PATH, build_asgi_app
+from odis_harness.mcp_forwarder.transports import (
+    MCP_MOUNT_PATH,
+    build_asgi_app,
+    serving_http,
+)
 from odis_harness.vault.dev import DevVault, plugin_built, vault_bin
 
 # Fixed ports — must match policy.yaml (Router endpoint) and agent.py defaults.
 ROUTER_PORT = 8088
 VENDOR_PORT = 8099
 SANDBOX_NAME = "odis-openshell-demo"
+#: Where the substrate's own log lands when the agent leg fails, since the sandbox is
+#: deleted immediately afterwards and the evidence goes with it.
+_SANDBOX_LOG_PATH = "/tmp/odis-openshell-sandbox.log"  # noqa: S108 - demo diagnostic
 _HERE = Path(__file__).resolve().parent
 
 # The fixture identity dev-Vault provisioning mints + binds the mapping to.
@@ -96,28 +103,13 @@ def _vendor_app() -> Starlette:
     return build_asgi_app(server)
 
 
-@contextlib.asynccontextmanager
-async def _running(app: Starlette, port: int) -> AsyncIterator[None]:
-    # Bound on 0.0.0.0 (not 127.0.0.1) — DELIBERATE for both services: the sandbox
-    # reaches the Router via host.openshell.internal -> the docker-bridge gateway IP,
-    # and the VENDOR must also be bridge-reachable so the agent's direct-connect
-    # probe proves the egress POLICY blocks it (loopback-only would make that test
-    # pass vacuously, with no policy enforced). Demo-only exposure: production
-    # non-loopback binds should add Origin/Host validation (see transports.py).
-    server = uvicorn.Server(uvicorn.Config(app, host="0.0.0.0", port=port, log_level="error"))  # noqa: S104
-    task = asyncio.create_task(server.serve())
-    try:
-        for _ in range(100):
-            if server.started:
-                break
-            await asyncio.sleep(0.05)
-        if not server.started:
-            msg = f"server on :{port} did not start (port already in use?)"
-            raise RuntimeError(msg)
-        yield
-    finally:
-        server.should_exit = True
-        await task
+#: Bound on 0.0.0.0 (not 127.0.0.1) — DELIBERATE for both services: the sandbox reaches
+#: the Router via host.openshell.internal -> the docker-bridge gateway IP, and the VENDOR
+#: must also be bridge-reachable so the agent's direct-connect probe proves the egress
+#: POLICY blocks it (loopback-only would make that test pass vacuously, with no policy
+#: enforced). Demo-only exposure: production non-loopback binds should add Origin/Host
+#: validation (see transports.py).
+_BIND_HOST = "0.0.0.0"  # noqa: S104 - see above; the sandbox cannot reach loopback
 
 
 def _point_mapping_at_local_vendor(addr: str, vendor_url: str) -> None:
@@ -222,6 +214,19 @@ async def _run_agent_in_sandbox() -> int:
         )
         print(agent_out.rstrip())
         print("-" * 60)
+        if rc != 0:
+            # Capture the substrate's own account BEFORE the sandbox is deleted. The agent
+            # traceback only shows the client end of a dropped connection, and the sandbox
+            # is gone by the time anyone thinks to look. Known-open: this leg fails
+            # intermittently with a transport ReadError that has been ruled out at the
+            # policy layer (`rest`, `mcp`, and L4 passthrough all flake at the same rate;
+            # `tcp` is denied outright with a driver-injected hostname), so the next
+            # question is what the supervisor proxy did, and this is how to answer it.
+            _, logs = await _sh("openshell", "logs", SANDBOX_NAME, timeout=60)
+            await asyncio.to_thread(
+                Path(_SANDBOX_LOG_PATH).write_text, logs, encoding="utf-8"
+            )
+            print(f"[openshell] sandbox logs captured -> {_SANDBOX_LOG_PATH}")
         # Clamp: ssh/python propagate exotic codes (255 transport, 2 unopenable
         # script) that would collide with the demo's documented SKIP exit (2).
         return 0 if rc == 0 else 1
@@ -262,7 +267,7 @@ async def main() -> int:
     with stack:
         audit = build_audit(audit_stream(audit_dest, stack))
         print(f"[audit] events -> {audit_dest}")
-        async with _running(_vendor_app(), VENDOR_PORT):
+        async with serving_http(_vendor_app(), host=_BIND_HOST, port=VENDOR_PORT):
             # The Router reaches the vendor host-locally; the sandbox cannot (policy blocks it).
             vendor_url = f"http://127.0.0.1:{VENDOR_PORT}{MCP_MOUNT_PATH}"
             with DevVault() as ctx:
@@ -281,7 +286,10 @@ async def main() -> int:
                     source=source,
                     opa_binary=opa,
                     audit=audit,
-                    vendor_client_factory=http_vendor_factory,
+                    wiring=RouterWiring(
+                        context_factory=stub_context_factory(),
+                        vendor_client_factory=http_vendor_factory,
+                    ),
                 )
                 bundle_id = router.bundle.bundle_id
                 print(f"[vault] minted + transit-signed + offline-verified bundle {bundle_id!r}")
@@ -295,7 +303,7 @@ async def main() -> int:
                 app = build_asgi_app(
                     build_mcp_server(router, requires_authenticated_caller=False)
                 )
-                async with _running(app, ROUTER_PORT):
+                async with serving_http(app, host=_BIND_HOST, port=ROUTER_PORT):
                     print(f"[router] serving on 0.0.0.0:{ROUTER_PORT} (reachable from the sandbox)")
                     rc = await _run_agent_in_sandbox()
 

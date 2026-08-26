@@ -19,6 +19,7 @@ import pytest
 from odis_harness.bundle.loader import BundleLoader
 from odis_harness.bundle.vault_verifier import VaultTransitSignatureVerifier
 from odis_harness.cli import SignedBundleSource, build_router_signed
+from odis_harness.cli.builders import RouterWiring
 from odis_harness.fixtures.vendor import InMemoryMcpClient
 from odis_harness.mcp_forwarder.policy import PolicyEvaluator
 from odis_harness.mcp_forwarder.vendor_client import (
@@ -195,7 +196,10 @@ async def test_serve_signed_builds_router_from_vault(
         source=source,
         opa_binary=opa_binary,
         audit=factories.audit_sink(),
-        vendor_client_factory=factories.in_memory_vendor_from_family,
+        wiring=RouterWiring(
+            context_factory=factories.context_factory(),
+            vendor_client_factory=factories.in_memory_vendor_from_family,
+        ),
     )
     assert router.bundle.bundle_id == "odis-fixture-bundle"
     assert router.bundle.family("jira-prod") is not None
@@ -219,7 +223,10 @@ async def test_vault_issued_gitlab_readonly_bundle_governs_read_only_tool(
         source=source,
         opa_binary=opa_binary,
         audit=factories.audit_sink(),
-        vendor_client_factory=_vault_union_vendor_factory(clients_by_endpoint),
+        wiring=RouterWiring(
+            context_factory=factories.context_factory(),
+            vendor_client_factory=_vault_union_vendor_factory(clients_by_endpoint),
+        ),
     )
 
     assert router.bundle.bundle_id == "odis-fixture-bundle"

@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import functools
 import io
-import socket
 from typing import TYPE_CHECKING, Any
 
 from odis_harness.audit import AuditSink
@@ -23,6 +22,7 @@ from odis_harness.bundle import (
     ToolPolicy,
     VendorMcp,
 )
+from odis_harness.cli.builders import RouterWiring
 from odis_harness.contracts import AuthzRequest, EnvelopeValidator, RuntimeContext
 from odis_harness.fixtures.identity import (
     FixtureOriginatingPrincipalProvider,
@@ -33,6 +33,7 @@ from odis_harness.fixtures.vendor import InMemoryMcpClient
 from odis_harness.mcp_forwarder.identity import CallerIdentity, RuntimeContextFactory
 from odis_harness.mcp_forwarder.policy import PolicyDecision, PolicyEvaluator
 from odis_harness.mcp_forwarder.router import Router
+from odis_harness.mcp_forwarder.transports import free_loopback_port
 from odis_harness.mcp_forwarder.vendor_client import (
     McpClient,
     ToolDescriptor,
@@ -207,6 +208,26 @@ def runtime_context() -> RuntimeContext:
     )
 
 
+def wiring(vendor: McpClient | None = None) -> RouterWiring:
+    """`RouterWiring` for the `build_router*` helpers.
+
+    The seams are required arguments, so a test says what it is wiring rather than
+    inheriting a hidden default. Defaults to the fixture identity providers and one
+    in-memory vendor PER FAMILY: `InMemoryMcpClient` is mutable — `tools` is the discovery
+    catalog and `calls` accumulates — so one shared instance would make discovery report
+    one family's catalog for another, and let a call against family A satisfy an assertion
+    about family B.
+    """
+    if vendor is not None:
+        return RouterWiring(
+            context_factory=context_factory(), vendor_client_factory=lambda _family: vendor
+        )
+    return RouterWiring(
+        context_factory=context_factory(),
+        vendor_client_factory=in_memory_vendor_from_family,
+    )
+
+
 def router(
     routed: Family | Bundle | None = None,
     *,
@@ -296,9 +317,7 @@ def in_memory_vendor_from_family(fam: Family) -> InMemoryMcpClient:
 
 def free_port() -> int:
     """An unused localhost TCP port, for tests that bind a real server."""
-    with socket.socket() as sock:
-        sock.bind(("127.0.0.1", 0))
-        return int(sock.getsockname()[1])
+    return free_loopback_port()
 
 
 __all__ = [
@@ -318,4 +337,5 @@ __all__ = [
     "in_memory_vendor_from_family",
     "router",
     "runtime_context",
+    "wiring",
 ]
