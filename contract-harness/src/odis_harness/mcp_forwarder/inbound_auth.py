@@ -47,9 +47,8 @@ _LOG = structlog.get_logger(__name__)
 #: would let a caller sign a token with a public key the Router publishes — the classic
 #: JWT confusion attack — so this is not a knob an operator can widen.
 #:
-#: The set matches `allowedSignatureAlgorithms` in `vault-plugin/backend/jwt.go`, and
-#: `test_inbound_auth` fails if the two diverge: a credential one side accepts and the
-#: other rejects is an outage an operator debugs across two languages.
+#: Matches `allowedSignatureAlgorithms` in `vault-plugin/backend/jwt.go`; `test_inbound_auth`
+#: fails if the two diverge.
 ALLOWED_ALGORITHMS = (
     "ES256",
     "ES384",
@@ -181,8 +180,8 @@ class WorkloadJwtVerifier:
         The `alg` header is attacker-controlled and unauthenticated, so letting that
         escape turns a forged one-line token into a 500 out of the auth backend instead
         of a 401 — and, worse, aborts this loop on the first mismatched key, so a mixed
-        RSA/EC trust set during a key rotation rejects every legitimate caller. Both
-        reproduced. go-jose returns an error here, which is why
+        RSA/EC trust set during a key rotation rejects every legitimate caller.
+        go-jose returns an error here, which is why
         `vault-plugin/backend/jwt.go:verifyAny` has no equivalent case.
         """
         for key in self.public_keys:

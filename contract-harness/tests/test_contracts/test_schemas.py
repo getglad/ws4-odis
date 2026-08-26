@@ -95,17 +95,10 @@ def test_schema_is_valid_draft_2020_12(name: str) -> None:
 
 @pytest.mark.parametrize("name", _NAMES)
 def test_schema_id_matches_filename(name: str) -> None:
-    # A URN, not an https URL: nothing is published at a resolvable address, and every
-    # `$ref` in these schemas is local (`#/$defs/...`), so an identifier that looks
-    # fetchable would only invite a consumer to try. The previous value used the
-    # `.local` TLD, which RFC 6762 reserves for mDNS — a consumer that did try would
-    # have emitted a link-local multicast lookup.
-    #
-    # The `odis` NID is not IANA-registered, which RFC 8141 asks of a formal namespace.
-    # Kept anyway and recorded here rather than papered over: nothing dereferences these
-    # identifiers (`EnvelopeValidator` keys on the file stem), so the string is a local
-    # label, and a `urn:uuid:` would trade a legible name for an opaque one to satisfy a
-    # registry this project has no claim on yet. Revisit if ODIS is ratified.
+    # A URN, not an https URL: nothing is published at a resolvable address and every
+    # `$ref` is local, so a fetchable-looking id would only invite a consumer to try.
+    # The `odis` NID is not IANA-registered; nothing dereferences these, so it is a local
+    # label. Revisit if ODIS is ratified.
     assert _schema(name)["$id"] == f"urn:odis:contract-harness:schemas:{name}"
 
 

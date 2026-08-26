@@ -224,8 +224,8 @@ async def test_forward_audits_the_evaluators_reason_not_a_blanket_deny(
 ) -> None:
     """A fail-closed policy error must reach the audit trail as `policy_error`.
 
-    Regression guard: the Router used to refuse every non-allow decision as `deny`,
-    which made "OPA was unreachable" indistinguishable from "the policy refused".
+    Regression guard: auditing every non-allow decision as `deny` makes "OPA was
+    unreachable" indistinguishable from "the policy refused".
     """
     del opa_binary  # this test deliberately supplies a broken binary
     audit = factories.CapturingAuditSink()

@@ -149,14 +149,9 @@ def _actor(ctx: RuntimeContext | None, caller: CallerIdentity | None) -> dict[st
             # verified subject. An event with no actor is the honest record.
             return {}
         # A refusal at the protocol boundary, before routing resolved a family. The
-        # originating principal is unresolved and stays that way: finding it means
-        # calling the identity providers on input already being rejected.
-        #
-        # The agent entry is emitted even when `caller` is the unauthenticated fallback
-        # rather than a verified subject. It carries `UNVERIFIED_AGENT_TYPE`, which says
-        # so, and a forwarded call in the same mode already records exactly this — so
-        # dropping it here would only make one event shape differ from another for a
-        # distinction the `type` field already draws.
+        # originating principal stays unresolved: finding it means calling the identity
+        # providers on input already being rejected. The agent is named even when it is
+        # the unauthenticated fallback — `type` carries that distinction.
         return {"actor": {"agent": {"id": caller.agent_id, "type": caller.agent_type}}}
     return {
         "actor": {
