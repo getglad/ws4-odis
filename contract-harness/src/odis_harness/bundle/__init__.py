@@ -16,7 +16,6 @@ from odis_harness.bundle.loader import (
     BundleLoader,
     BundleSchemaInvalid,
     BundleSignatureInvalid,
-    FixtureSignatureVerifier,
     SignatureVerifier,
 )
 from odis_harness.bundle.types import Bundle, DefaultMode, Family, ToolPolicy, VendorMcp
@@ -37,7 +36,6 @@ __all__ = [
     "BundleSignatureInvalid",
     "DefaultMode",
     "Family",
-    "FixtureSignatureVerifier",
     "NonEd25519PublicKeyError",
     "SignatureVerifier",
     "SignedBundle",

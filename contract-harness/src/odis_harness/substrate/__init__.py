@@ -6,10 +6,6 @@ Orchestration belongs to the Router; sandbox containment belongs to OpenShell
 or the equivalent substrate.
 """
 
-from odis_harness.substrate.fixtures import (
-    FixtureOriginatingPrincipalProvider,
-    FixtureWorkloadIdentityProvider,
-)
 from odis_harness.substrate.identity import (
     AgentRuntimeCredential,
     OriginatingPrincipal,
@@ -19,8 +15,6 @@ from odis_harness.substrate.identity import (
 
 __all__ = [
     "AgentRuntimeCredential",
-    "FixtureOriginatingPrincipalProvider",
-    "FixtureWorkloadIdentityProvider",
     "OriginatingPrincipal",
     "OriginatingPrincipalProvider",
     "WorkloadIdentityProvider",

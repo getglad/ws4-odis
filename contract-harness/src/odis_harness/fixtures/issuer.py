@@ -69,6 +69,15 @@ class FixtureIdentityIssuer:
             payload.update(claims)
         return jwt.encode(payload, self.private_key, algorithm=_ALG, headers={"kid": self.key_id})
 
+    def public_key(self) -> ec.EllipticCurvePublicKey:
+        """The signing key's public half, parsed.
+
+        The sibling of `public_pem` and `jwks`, for a caller that wants the key object —
+        `WorkloadJwtVerifier` takes parsed keys, and without this every such caller
+        re-parses the PEM this class just serialized.
+        """
+        return self.private_key.public_key()
+
     def public_pem(self) -> bytes:
         """The signing key's public half as PEM (SubjectPublicKeyInfo)."""
         return self.private_key.public_key().public_bytes(

@@ -7,9 +7,9 @@ from typing import TYPE_CHECKING
 import pytest
 
 from odis_harness.bundle import Bundle, Family, VendorMcp
+from odis_harness.fixtures.vendor import InMemoryMcpClient
 from odis_harness.mcp_forwarder.discovery import DiscoveryCache
 from odis_harness.mcp_forwarder.vendor_client import (
-    InMemoryMcpClient,
     ToolDescriptor,
 )
 from tests import factories

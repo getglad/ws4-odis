@@ -1,7 +1,7 @@
 """BundleLoader — read bytes, verify signature, validate schema, construct `Bundle`.
 
 Signature verification is delegated to the injected `SignatureVerifier` protocol;
-the harness ships a fixture (`FixtureSignatureVerifier`) that accepts any payload.
+a non-production stand-in that accepts any payload lives in `odis_harness.fixtures`.
 Production substitutes a real verifier — the load-path stays the same.
 
 Schema validation uses Draft 2020-12 against `schemas/odis.bundle.v1.json`.
@@ -49,25 +49,14 @@ class BundleSchemaInvalid(RuntimeError):  # noqa: N818 - reads clearer than the 
 class SignatureVerifier(Protocol):
     """Out-of-scope-but-pluggable.
 
-    The harness ships `FixtureSignatureVerifier`; production substitutes a real
-    implementation that checks against the trust root. The Protocol exists so
-    the load-path can call `.verify(payload, signature)` regardless of the
-    implementation.
+    The caller supplies one — `BundleLoader` has no default, so a load path cannot
+    silently accept an unverified payload. `VaultTransitSignatureVerifier` is the real
+    implementation; `odis_harness.fixtures.signature` holds a non-production stand-in.
+    The Protocol exists so the load path can call `.verify(payload, signature)` without
+    knowing which.
     """
 
     def verify(self, payload: bytes, signature: bytes) -> bool: ...
-
-
-@dataclass(frozen=True, slots=True)
-class FixtureSignatureVerifier:
-    """Always returns True. For tests and local-dev only.
-
-    Production deployments MUST substitute a real `SignatureVerifier` that
-    checks the bundle's signature against the trust root.
-    """
-
-    def verify(self, payload: bytes, signature: bytes) -> bool:  # noqa: ARG002
-        return True
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
@@ -191,6 +180,5 @@ __all__ = [
     "BundleLoader",
     "BundleSchemaInvalid",
     "BundleSignatureInvalid",
-    "FixtureSignatureVerifier",
     "SignatureVerifier",
 ]

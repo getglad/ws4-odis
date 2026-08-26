@@ -14,15 +14,9 @@ the vendor→provider credential, hydrated at runtime and never persisted.
 from __future__ import annotations
 
 from odis_harness.bridge.exchange import BridgeAuth, ExchangedToken, TokenExchanger
-from odis_harness.bridge.fixtures import (
-    FixtureTokenExchanger,
-    fixture_subject_token_provider,
-)
 
 __all__ = [
     "BridgeAuth",
     "ExchangedToken",
-    "FixtureTokenExchanger",
     "TokenExchanger",
-    "fixture_subject_token_provider",
 ]

@@ -19,9 +19,9 @@ import pytest
 from odis_harness.bundle.loader import BundleLoader
 from odis_harness.bundle.vault_verifier import VaultTransitSignatureVerifier
 from odis_harness.cli import SignedBundleSource, build_router_signed
+from odis_harness.fixtures.vendor import InMemoryMcpClient
 from odis_harness.mcp_forwarder.policy import PolicyEvaluator
 from odis_harness.mcp_forwarder.vendor_client import (
-    InMemoryMcpClient,
     McpClient,
     ToolDescriptor,
     ToolResult,

@@ -42,7 +42,6 @@ from odis_harness.mcp_forwarder.router import (
 from odis_harness.mcp_forwarder.server import build_mcp_server
 from odis_harness.mcp_forwarder.transports import build_asgi_app, serve_http
 from odis_harness.mcp_forwarder.vendor_client import (
-    InMemoryMcpClient,
     McpClient,
     ToolDescriptor,
     ToolResult,
@@ -58,7 +57,6 @@ __all__ = [
     "DiscoveryFailureCallback",
     "ForwardMode",
     "HttpMcpClient",
-    "InMemoryMcpClient",
     "McpClient",
     "McpRefusal",
     "PolicyDecision",

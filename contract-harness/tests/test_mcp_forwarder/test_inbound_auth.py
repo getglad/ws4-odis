@@ -23,7 +23,7 @@ from odis_harness.mcp_forwarder.router import DEFAULT_AGENT_ID
 from odis_harness.mcp_forwarder.server import _call, build_mcp_server
 from odis_harness.mcp_forwarder.transports import build_asgi_app
 from odis_harness.paths import repo_root
-from odis_harness.vault.fixtures import FixtureIdentityIssuer
+from odis_harness.fixtures.issuer import FixtureIdentityIssuer
 from tests import factories
 
 if TYPE_CHECKING:

@@ -19,18 +19,20 @@ from typing import TYPE_CHECKING
 import structlog
 
 from odis_harness.audit.sink import AuditSink
-from odis_harness.bundle import (
-    BundleLoader,
-    FixtureSignatureVerifier,
-)
+from odis_harness.bundle import BundleLoader
 from odis_harness.contracts import EnvelopeValidator
+from odis_harness.fixtures.identity import (
+    FixtureOriginatingPrincipalProvider,
+    FixtureWorkloadIdentityProvider,
+)
+from odis_harness.fixtures.signature import FixtureSignatureVerifier
+from odis_harness.fixtures.vendor import InMemoryMcpClient
 from odis_harness.mcp_forwarder.audit import audit_discovery_failed
 from odis_harness.mcp_forwarder.discovery import DiscoveryCache
 from odis_harness.mcp_forwarder.identity import RuntimeContextFactory
 from odis_harness.mcp_forwarder.policy import PolicyEvaluator
 from odis_harness.mcp_forwarder.router import Router
 from odis_harness.mcp_forwarder.vendor_client import (
-    InMemoryMcpClient,
     McpClient,
     SupportsSessionEstablish,
     ToolDescriptor,
@@ -38,10 +40,6 @@ from odis_harness.mcp_forwarder.vendor_client import (
 )
 from odis_harness.mcp_forwarder.vendor_http import HttpMcpClient
 from odis_harness.paths import default_schemas_dir
-from odis_harness.substrate.fixtures import (
-    FixtureOriginatingPrincipalProvider,
-    FixtureWorkloadIdentityProvider,
-)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
@@ -341,11 +339,11 @@ def make_fixture_bridged_http_vendor_factory() -> Callable[[Family], McpClient]:
     production `TokenExchanger` implementation.
     """
     # Lazy: the Bridge + fixture issuer are only needed on the opt-in `--bridge` path.
-    from odis_harness.bridge import (  # noqa: PLC0415
+    from odis_harness.fixtures.bridge import (  # noqa: PLC0415
         FixtureTokenExchanger,
         fixture_subject_token_provider,
     )
-    from odis_harness.vault.fixtures import FixtureIdentityIssuer  # noqa: PLC0415
+    from odis_harness.fixtures.issuer import FixtureIdentityIssuer  # noqa: PLC0415
 
     agent_issuer = FixtureIdentityIssuer.generate(
         issuer="https://fixture.passport.odis.local/", key_id="fixture-agent-key-1"

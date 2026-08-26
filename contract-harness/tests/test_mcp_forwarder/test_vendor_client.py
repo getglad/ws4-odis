@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+from odis_harness.fixtures.vendor import InMemoryMcpClient
 from odis_harness.mcp_forwarder.vendor_client import (
-    InMemoryMcpClient,
     ToolDescriptor,
     ToolResult,
     VendorUnreachable,

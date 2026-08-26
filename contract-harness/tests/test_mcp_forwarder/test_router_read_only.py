@@ -17,7 +17,7 @@ from tests import factories
 
 if TYPE_CHECKING:
     from odis_harness.bundle import Family
-    from odis_harness.mcp_forwarder.vendor_client import InMemoryMcpClient
+    from odis_harness.fixtures.vendor import InMemoryMcpClient
 
 pytestmark = pytest.mark.enable_socket
 

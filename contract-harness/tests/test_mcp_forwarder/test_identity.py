@@ -10,11 +10,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from odis_harness.mcp_forwarder.identity import CallerIdentity, RuntimeContextFactory
-from odis_harness.substrate.fixtures import (
+from odis_harness.fixtures.identity import (
     FixtureOriginatingPrincipalProvider,
     FixtureWorkloadIdentityProvider,
 )
+from odis_harness.mcp_forwarder.identity import CallerIdentity, RuntimeContextFactory
 from tests import factories
 
 if TYPE_CHECKING:

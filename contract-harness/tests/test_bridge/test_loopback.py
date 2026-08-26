@@ -24,13 +24,10 @@ from mcp.server.lowlevel import Server
 from mcp.types import TextContent, Tool
 
 from odis_harness.bridge.exchange import BridgeAuth
-from odis_harness.bridge.fixtures import (
-    FixtureTokenExchanger,
-    fixture_subject_token_provider,
-)
+from odis_harness.fixtures.bridge import FixtureTokenExchanger, fixture_subject_token_provider
+from odis_harness.fixtures.issuer import FixtureIdentityIssuer
 from odis_harness.mcp_forwarder.transports import MCP_MOUNT_PATH, build_asgi_app
 from odis_harness.mcp_forwarder.vendor_http import HttpMcpClient
-from odis_harness.vault.fixtures import FixtureIdentityIssuer
 from tests import factories
 
 pytestmark = pytest.mark.enable_socket

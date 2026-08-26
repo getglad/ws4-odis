@@ -1,4 +1,4 @@
-"""`McpClient` Protocol + `InMemoryMcpClient` test double.
+"""The `McpClient` Protocol — the vendor-transport seam.
 
 The Router holds one `McpClient` per family (per the bundle's routing table)
 and calls it during forward orchestration. The production implementation
@@ -13,11 +13,11 @@ it at the forward boundary and converts to `odis.mcp.forward_refused` with
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping
+    from collections.abc import Mapping
     from typing import Any
 
 
@@ -100,50 +100,7 @@ class SupportsSessionEstablish(Protocol):
         """
 
 
-@dataclass
-class InMemoryMcpClient:
-    """In-process test double implementing `McpClient`.
-
-    Construct with a catalog of tools and either a static `responses` map or
-    a `responder` callable. If both are provided, `responder` wins (it is
-    consulted first). Set `unreachable=True` to simulate a transport outage
-    on every call.
-
-    `self.calls` records every `call_tool` invocation — including ones that
-    raise — so tests can assert "the Router attempted to call X" even when
-    the vendor is unreachable.
-    """
-
-    tools: list[ToolDescriptor]
-    responses: dict[str, ToolResult] = field(default_factory=dict)
-    responder: Callable[[str, dict[str, Any]], ToolResult] | None = None
-    unreachable: bool = False
-    #: Captured calls for test assertions. Populated by `call_tool` BEFORE
-    #: any exception is raised so tests can observe attempted-but-failed calls.
-    calls: list[tuple[str, Mapping[str, Any]]] = field(default_factory=list)
-
-    async def list_tools(self) -> list[ToolDescriptor]:
-        if self.unreachable:
-            message = "vendor in-memory client configured as unreachable"
-            raise VendorUnreachable(message)
-        return list(self.tools)
-
-    async def call_tool(self, name: str, arguments: Mapping[str, Any]) -> ToolResult:
-        # Record before any raise so tests can observe attempted-but-failed calls.
-        self.calls.append((name, dict(arguments)))
-        if self.unreachable:
-            message = "vendor in-memory client configured as unreachable"
-            raise VendorUnreachable(message)
-        if self.responder is not None:
-            return self.responder(name, dict(arguments))
-        if name not in self.responses:
-            message = f"no response configured for tool {name!r} on InMemoryMcpClient"
-            raise VendorUnreachable(message)
-        return self.responses[name]
-
-
 __all__ = [
-    "InMemoryMcpClient",
     "McpClient",
     "SupportsSessionEstablish",
     "ToolDescriptor",

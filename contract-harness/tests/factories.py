@@ -20,25 +20,25 @@ from odis_harness.bundle import (
     Bundle,
     BundleLoader,
     Family,
-    FixtureSignatureVerifier,
     ToolPolicy,
     VendorMcp,
 )
 from odis_harness.contracts import AuthzRequest, EnvelopeValidator, RuntimeContext
+from odis_harness.fixtures.identity import (
+    FixtureOriginatingPrincipalProvider,
+    FixtureWorkloadIdentityProvider,
+)
+from odis_harness.fixtures.signature import FixtureSignatureVerifier
+from odis_harness.fixtures.vendor import InMemoryMcpClient
 from odis_harness.mcp_forwarder.identity import CallerIdentity, RuntimeContextFactory
 from odis_harness.mcp_forwarder.policy import PolicyDecision, PolicyEvaluator
 from odis_harness.mcp_forwarder.router import Router
 from odis_harness.mcp_forwarder.vendor_client import (
-    InMemoryMcpClient,
     McpClient,
     ToolDescriptor,
     ToolResult,
 )
 from odis_harness.paths import default_schemas_dir, repo_root
-from odis_harness.substrate.fixtures import (
-    FixtureOriginatingPrincipalProvider,
-    FixtureWorkloadIdentityProvider,
-)
 
 if TYPE_CHECKING:
     from collections.abc import Mapping

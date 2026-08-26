@@ -10,11 +10,8 @@ from __future__ import annotations
 import jwt
 import pytest
 
-from odis_harness.bridge.fixtures import (
-    FixtureTokenExchanger,
-    fixture_subject_token_provider,
-)
-from odis_harness.vault.fixtures import FixtureIdentityIssuer
+from odis_harness.fixtures.bridge import FixtureTokenExchanger, fixture_subject_token_provider
+from odis_harness.fixtures.issuer import FixtureIdentityIssuer
 
 # Async tests need the event loop's self-pipe socket (suite is --disable-socket).
 pytestmark = pytest.mark.enable_socket

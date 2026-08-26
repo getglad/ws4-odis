@@ -24,7 +24,7 @@ import jwt
 import structlog
 
 from odis_harness.bridge.exchange import ExchangedToken
-from odis_harness.vault.fixtures import FixtureIdentityIssuer
+from odis_harness.fixtures.issuer import FixtureIdentityIssuer
 
 if TYPE_CHECKING:
     from collections.abc import Callable

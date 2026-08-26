@@ -15,12 +15,12 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from odis_harness.fixtures.vendor import InMemoryMcpClient
 from odis_harness.cli.builders import (
     build_router_from_bundle,
     establish_leg2_sessions,
 )
 from odis_harness.mcp_forwarder.vendor_client import (
-    InMemoryMcpClient,
     McpClient,
     SupportsSessionEstablish,
     ToolDescriptor,

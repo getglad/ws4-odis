@@ -14,10 +14,10 @@ from odis_harness.bundle.loader import (
     BundleLoader,
     BundleSchemaInvalid,
     BundleSignatureInvalid,
-    FixtureSignatureVerifier,
 )
 from odis_harness.bundle.types import Bundle
 from odis_harness.bundle.vault_verifier import VaultTransitSignatureVerifier
+from odis_harness.fixtures.signature import FixtureSignatureVerifier
 
 if TYPE_CHECKING:
     from pathlib import Path

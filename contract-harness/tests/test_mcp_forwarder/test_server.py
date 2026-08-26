@@ -11,13 +11,13 @@ from typing import TYPE_CHECKING
 import pytest
 from mcp.shared.memory import create_connected_server_and_client_session
 
+from odis_harness.fixtures.vendor import InMemoryMcpClient
 from odis_harness.mcp_forwarder.discovery import DiscoveryCache
 from odis_harness.mcp_forwarder.identity import UNVERIFIED_AGENT_TYPE
 from odis_harness.mcp_forwarder.policy import PolicyEvaluator
 from odis_harness.mcp_forwarder.router import DEFAULT_AGENT_ID, Router
 from odis_harness.mcp_forwarder.server import build_mcp_server
 from odis_harness.mcp_forwarder.vendor_client import (
-    InMemoryMcpClient,
     ToolDescriptor,
     ToolResult,
 )
