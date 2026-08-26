@@ -98,10 +98,18 @@ ignore = [
     "ARG",     # unused args (fixtures)
     "PLR2004", # magic numbers in test data
 ]
-"src/odis_harness/cli/commands.py" = [
-    "B008",    # typer.Option(...) in arg defaults is the Typer idiom
+# Pinned to the two modules that declare Typer command signatures. A package-wide glob
+# would also relieve `builders.py`, which is ordinary library code and should keep the
+# boolean-trap and argument-count rules. The `Annotated` form removes the need for B008
+# and FBT003; only what is inherent to Typer's model remains.
+"src/odis_harness/cli/serve.py" = [
     "FBT001",  # bool option params are Typer flags, never positional
-    "FBT003",  # bool default to typer.Option(...) is the flag's value
+    "FBT002",  # ... and their default belongs in the signature in the Annotated form
+    "PLR0913", # Typer maps each CLI option to a command parameter (the serve surface)
+]
+"src/odis_harness/cli/demo.py" = [
+    "FBT001",  # bool option params are Typer flags, never positional
+    "FBT002",  # ... and their default belongs in the signature in the Annotated form
     "PLR0913", # Typer maps each CLI option to a command parameter (the serve surface)
 ]
 
