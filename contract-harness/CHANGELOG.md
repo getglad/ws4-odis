@@ -31,9 +31,37 @@ All notable changes to the ODIS Contract Harness are documented here. The format
   directory named `schemas`.
 - `VendorMcp` validates `url` against the schema's `^https?://`.
 - `mise run install` honours `uv.lock`; `mise run test-all` reaches the Vault test slice.
+- An `obligation_violation` refusal audits the enforcer's own message, naming the argument
+  that failed, instead of a bare reason code. The agent still receives only the code.
+- Schema `$id`s are URNs. They pointed at `https://apf.local/`, under a TLD RFC 6762
+  reserves for mDNS, so a consumer treating them as fetchable would emit a link-local
+  multicast lookup. Nothing dereferences them: the validator keys on the file stem and
+  every `$ref` is local.
+- The OpenShell example's sandbox image pinned `mcp>=1.27`, which resolved to a 2.x client
+  whose API the agent script is not written against — inside a sandbox egress-locked to the
+  Router and unable to reach PyPI to correct it. Pinned to the version in `uv.lock`.
 
 
 ### Added
+
+- `demo --signed` and `mise run demo-signed`: the canonical scenarios against a Vault-issued
+  grant whose ed25519 signature is verified offline. Same Router, gate, transport and vendor
+  as `demo` — one axis changed.
+- `serve` and `demo` require an explicit grant-trust choice for a local `--bundle`:
+  `--bundle-pubkey-file` or `--trust-bundle-unverified`. There is no default, and the startup
+  banner names which is in force. Previously a verifier that accepts any payload was
+  hardcoded, so the deploy-shaped command trusted an unverified grant silently.
+
+
+- `serve --inbound-key/--inbound-issuer/--inbound-audience` makes the Router's MCP surface
+  an OAuth 2.1 resource server. A caller presents a workload JWT, validated for signature,
+  issuer, audience and expiry against an asymmetric-algorithm allowlist matching the Vault
+  plugin's, before any handler runs; `agent_id` is then the verified subject rather than a
+  constant. Audit events record how the identity was established, so a received identity is
+  distinguishable from an asserted one. Trust material is parsed strictly at startup — a
+  private-key PEM, malformed material, or a key that cannot verify any allowed algorithm
+  exits non-zero instead of serving. Without `--inbound-key` the surface still accepts any
+  caller, which the startup banner states outright. It listens on plain HTTP and takes no certificate or key.
 
 - Initial contribution to the CoSAI ODIS workstream: a runnable, 100%-open-source
   candidate implementation of the ODIS Router / governance-checkpoint wedge, built as an
