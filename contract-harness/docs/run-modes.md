@@ -37,9 +37,14 @@ rather than a full implementation, its bullet says so.
   reason below.
 - **Tier Ceiling** - an operator-set **maximum-permission boundary** per tier, selected by the
   agent's own `apf_tier` claim and applied once to the composed union, so it can only ever
-  *shrink* what an identity may do. ODIS specifies nothing here; §3.5 makes interoperability
-  depend on "the data contracts between roles, not on packaging", so the ceiling stays an
-  internal safety property while what crosses the boundary is the signed Authority Grant.
+  *shrink* what an identity may do. ODIS names no ceiling of this kind — §3.5 makes
+  interoperability depend on "the data contracts between roles, not on packaging" — so the
+  ceiling stays an internal safety property while what crosses the boundary is the signed
+  Authority Grant. The **rules** it is applied under are specified, though, and are not the
+  same object: the ceiling is the bound, while `attenuation_profile_ref` names the immutable,
+  versioned normalization and comparison rules that define what "shrink" means on each axis
+  (ODIS-L2-06). Change the ceiling and a different result comes out; change the profile and
+  the *same* ceiling yields a different result, which is why a verifier needs both.
 - **Authority Grant** - the runtime bundle declaring what the agent may do. For the Router it
   stands where a Delegation Record stands: the only statement of delegated authority there is,
   integrity-protected by its issuer and verified before it is trusted. It **aggregates** the 
