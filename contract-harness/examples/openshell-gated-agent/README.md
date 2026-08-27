@@ -28,32 +28,6 @@ allowed call (`update_issue(APF-123)`, labels-only) and a denied one (`update_is
 > Want the gate's *logic* with **zero infra** (no Docker/OpenShell)? Run `mise run demo`
 > — the same gate against an in-process stub. This example is the *enforced* version.
 
-## Known: the agent leg can fail intermittently
-
-The sandboxed agent's MCP client can die with an `httpx.ReadError` that kills its writer
-task, after which the next call raises `anyio.BrokenResourceError`. It fails at `initialize`
-or `list_tools`, before the Router processes anything — a failing run with the audit file
-truncated first produces **zero** audit events, so the Router is not implicated.
-
-Ruled out, with measurements:
-
-| Hypothesis | Result |
-|---|---|
-| Our transport config or the MCP SDK | **No** — the identical client -> MCP -> Router -> vendor path is 12/12 on loopback (`tests/test_e2e.py`) |
-| OpenShell's L7 protocol handling | **No** — `protocol: rest`, `protocol: mcp`, and L4 passthrough (no `protocol`) all behaved alike |
-| The L7 relay's 5s idle truncation of unframed responses | **No** — L4 passthrough has no such timeout and failed anyway |
-| `protocol: tcp` (transparent TCP, no L7) | **Unusable** — denied 6/6; policy DNS cannot correlate the driver-injected `host.openshell.internal` |
-
-No pass rate is claimed: the runs behind that table are not comparable to the current
-configuration, and it has not been run enough times since to give one. On failure the demo
-captures the substrate's own account to
-`/tmp/odis-openshell-sandbox.log` before deleting the sandbox, which is where to look — the
-agent traceback only shows the client end of a dropped connection.
-
-`protocol: mcp` is the correct declaration and what this example uses: OpenShell parses the
-JSON-RPC envelope and can gate on MCP method and tool name, which `rest` cannot. It was
-chosen on merit, not because it changed the pass rate.
-
 ## Running it
 
 **Prerequisites** — first complete the root README's quick demo so the mise-managed
@@ -112,14 +86,21 @@ intercepts every CONNECT; `policy.yaml` authorizes the agent's **one** egress �
 — so a direct call to the vendor is refused (you see the `BLOCKED` line above). Take the
 substrate away and the gate becomes advisory: an agent could just skip the Router.
 
-The sandbox bounds the **agent**; it does not bound anyone else. This example binds the
-Router and the vendor stub to `0.0.0.0`, because the sandbox cannot reach the host's
-loopback, and serves the MCP surface with no inbound verifier
-(`requires_authenticated_caller=False`). For the ~45 seconds a run lasts, the Router
-therefore answers any host that can route to this machine, unauthenticated. That is
-acceptable here only because the vendor is an in-process stub holding no credential —
-a deployment forwarding to a production vendor must arm `--inbound-key` and bind
-narrowly.
+The sandbox bounds the **agent**; it does not bound anyone else. This example binds both the
+Router and the vendor stub to `0.0.0.0` and serves the MCP surface with no inbound verifier
+(`requires_authenticated_caller=False`), so for as long as a run lasts the Router answers any
+host that can route to this machine, unauthenticated.
+
+A loopback bind genuinely would not work for the Router: the sandbox reaches it over the
+`openshell-docker` bridge, arriving from that network rather than from `127.0.0.1`. But that
+rules out loopback, not everything narrower — `gateway/setup.sh` already computes the bridge's
+gateway address for its own callback publish, and the vendor stub is only ever called by the
+Router over loopback. So each could bind to one address instead of all of them. Binding both
+to `0.0.0.0` is a convenience of this example, not a requirement of the substrate.
+
+It is acceptable here only because the vendor is an in-process stub holding no credential.
+A deployment forwarding to a production vendor must arm `--inbound-key` and bind narrowly;
+both are follow-ups, and the startup banner states the posture in force.
 
 Boundary, stated plainly: current OpenShell can enforce MCP methods and tool names at L7,
 but not tool-argument constraints. This example intentionally uses a host-scoped allow to
