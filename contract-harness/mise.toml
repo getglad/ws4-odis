@@ -135,13 +135,15 @@ run = "bash configure-signing.sh"
 [tasks.demo-openshell]
 description = "OpenShell-gated demo: agent inside a REAL OpenShell sandbox → Router gate → vendor (egress enforced). Needs the gateway up first: bash examples/openshell-gated-agent/gateway/setup.sh"
 depends = ["build-vault-plugin"]
-tools = { vault = "latest", "pipx:openshell" = "latest" }
+# Moves with the gateway image pin in examples/openshell-gated-agent/gateway/docker-compose.yml:
+# the CLI and the gateway it drives run the same version.
+tools = { vault = "latest", "pipx:openshell" = "0.0.111" }
 env = { ODIS_AUDIT_OUTPUT = "/tmp/odis-openshell-audit.jsonl" }
 run = "python examples/openshell-gated-agent/openshell_demo.py"
 
 [tasks.openshell-connect]
 description = "Register or select the local OpenShell gateway and show its connection status"
-tools = { "pipx:openshell" = "latest" }
+tools = { "pipx:openshell" = "0.0.111" }
 run = """
 if ! openshell gateway info --gateway odis >/dev/null 2>&1; then
     openshell gateway add http://localhost:8080 --local --name odis

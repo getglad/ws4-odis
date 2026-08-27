@@ -1,6 +1,6 @@
-"""Real OpenShell-gated demo: the agent runs INSIDE an OpenShell sandbox.
+"""OpenShell-gated demo: the agent runs INSIDE an OpenShell sandbox.
 
-The agent runs inside a real OpenShell sandbox whose network policy (`policy.yaml`) permits
+The agent runs inside an OpenShell sandbox whose network policy (`policy.yaml`) permits
 exactly one destination — the Router — so a direct call to the vendor is *actually blocked*
 by the sandbox's egress proxy. The gate is mandatory, not advisory. (For the gate's *logic*
 with zero infra — no Docker/OpenShell — run `uv run odis-harness demo` instead.)
@@ -167,7 +167,11 @@ async def _run_agent_in_sandbox() -> int:
     )
     rc, out = await _sh(
         "openshell", "sandbox", "create", "--from", sandbox_dir, "--policy", policy,
-        "--name", SANDBOX_NAME, "--keep", "--no-tty", "--no-auto-providers", "--", "echo", "ready",
+        "--name", SANDBOX_NAME, "--keep", "--no-tty", "--no-auto-providers",
+        # The sandbox's phase follows its main process, so one that exits immediately lands
+        # in Error before the demo can ssh in. This sleep outlives the run; the sandbox is
+        # deleted in the finally below.
+        "--", "sleep", "900",
         timeout=900,
     )
     if rc != 0:
@@ -299,7 +303,7 @@ async def main() -> int:
                 # Router answers any host on the network. Acceptable only because the
                 # vendor here is an in-process stub holding no credential. Wiring
                 # `--inbound-key` into this example is tracked follow-up; a deployment
-                # forwarding to a real vendor must not copy this line.
+                # forwarding to a production vendor must not copy this line.
                 app = build_asgi_app(
                     build_mcp_server(router, requires_authenticated_caller=False)
                 )
