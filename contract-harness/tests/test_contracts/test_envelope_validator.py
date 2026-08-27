@@ -37,7 +37,7 @@ def _runtime_context() -> dict[str, object]:
         "originating_principal": {"id": "fixture-principal", "type": "entra_oidc"},
         "agent": {"id": "fixture-agent", "type": "fixture_workload_identity"},
         "task_intent": "Add a label",
-        "target_resource": {"resource_family": "jira", "instance_id": "APF-123"},
+        "target_resource": {"resource_family": "jira"},
         "issued_at": "2026-05-28T00:00:00Z",
     }
 
@@ -47,8 +47,9 @@ def _authz_request() -> dict[str, object]:
         "subject": {
             "originating_principal": {"id": "fixture-principal", "type": "entra_oidc"},
             "agent": {"id": "fixture-agent", "type": "fixture_workload_identity"},
+            "delegation_chain": [],
         },
-        "target_resource": {"resource_family": "jira", "instance_id": "APF-123"},
+        "target_resource": {"resource_family": "jira"},
         "verb": "jira.update_issue",
         "request_body": {"project": "APF", "fields": {"labels": ["odis-demo"]}},
         "task_intent": "Add a label",

@@ -106,11 +106,6 @@
           "type": "string",
           "minLength": 1,
           "description": "Key into the signed bundle's per-family routing (e.g., 'jira')."
-        },
-        "instance_id": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Provider-specific instance handle (e.g., a Jira issue key like 'APF-123')."
         }
       }
     }

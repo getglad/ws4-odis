@@ -12,7 +12,7 @@ envelope therefore goes through the same schema boundary.
 from __future__ import annotations
 
 import dataclasses
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar, Self
 
@@ -32,23 +32,48 @@ if TYPE_CHECKING:
     from odis_harness.contracts.validator import EnvelopeValidator
 
 
-def now_iso() -> str:
-    """Current UTC time in the `Z`-suffixed form the envelope schemas require.
+def to_iso(moment: datetime) -> str:
+    """`moment` in the `Z`-suffixed UTC form the envelope schemas require.
 
     The three envelope schemas declare `format: date-time` for `issued_at` and
-    `timestamp`; every emitter needs the same rendering, so it lives here rather than
-    beside each caller.
+    `timestamp`, so every emitter needs one rendering. It lives beside the schemas it
+    satisfies: a second implementation elsewhere could drift from them silently, since
+    nothing rejects a valid-but-differently-rendered instant.
+
+    A tz-naive `moment` is rejected rather than converted. `astimezone` would read it as
+    host-local and silently shift the instant by the host's offset, writing a wrong time
+    into a record nothing would flag — and the callers stamp credential expiries, where
+    being an hour out is the difference between valid and expired.
     """
-    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    if moment.tzinfo is None:
+        message = f"to_iso needs an aware datetime; {moment!r} has no tzinfo"
+        raise ValueError(message)
+    return moment.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
-def _to_dict(instance: DataclassInstance) -> dict[str, Any]:
+def now_iso() -> str:
+    """Current UTC time, rendered by `to_iso`."""
+    return to_iso(datetime.now(UTC))
+
+
+def _to_dict(instance: DataclassInstance, *, drop_unset: bool = False) -> dict[str, Any]:
     """The envelope as a JSON-serializable dict.
 
     Every envelope field is a scalar or a plain `Mapping`/`list`, so `asdict` has
     nothing nested to recurse into.
+
+    `drop_unset` omits every `= None`-defaulted field still holding None, so the
+    serialized envelope matches the canonical schema example shape. It is derived from
+    the dataclass rather than a restated key list, and covers `default=None` only: a
+    field declared with `default_factory` has `Field.default is MISSING` and needs its
+    own rule.
     """
-    return dataclasses.asdict(instance)
+    d = dataclasses.asdict(instance)
+    if drop_unset:
+        for f in dataclasses.fields(instance):
+            if f.default is None and d.get(f.name) is None:
+                d.pop(f.name, None)
+    return d
 
 
 # -- Envelopes ---------------------------------------------------------------
@@ -82,6 +107,16 @@ class RuntimeContext:
 
 @dataclass(frozen=True, kw_only=True)
 class AuthzRequest:
+    """The authorization request the Router builds for a policy decision.
+
+    Every property the schema declares is required, so the envelope advertises no
+    input the Router has no path to supply. It carries no runtime-risk signal in
+    particular: ODIS §6.4 types `runtime_risk_signals` as authenticated signal objects
+    a checkpoint MUST validate for issuer trust, integrity, replay resistance,
+    freshness and subject correlation before use, and the harness has no signal
+    authority to validate one against.
+    """
+
     ENVELOPE_NAME: ClassVar[str] = "odis.authz.request.v1"
 
     correlation_id: str
@@ -97,16 +132,9 @@ class AuthzRequest:
     bundle_version: str = STUB_BUNDLE_VERSION
     trust_root_id: str = STUB_TRUST_ROOT_ID
     phase: str = PHASE
-    active_verdicts: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
-        d = _to_dict(self)
-        # `active_verdicts` is MAY in APF §6.2; omit when empty so the
-        # serialized envelope matches the canonical example used by the
-        # schema-validation tests.
-        if not self.active_verdicts:
-            d.pop("active_verdicts", None)
-        return d
+        return _to_dict(self)
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any], validator: EnvelopeValidator) -> Self:
@@ -140,16 +168,7 @@ class AuditEvent:
     extra: Mapping[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        d = _to_dict(self)
-        # Drop every `= None`-defaulted field when unset, so the serialized event
-        # matches the canonical schema example shape. Derived from the dataclass rather
-        # than a restated key list. Note this covers `default=None` only: a field using
-        # `default_factory` has `Field.default is MISSING`, so it would need its own
-        # rule (as `AuthzRequest.active_verdicts` has).
-        for f in dataclasses.fields(self):
-            if f.default is None and d.get(f.name) is None:
-                d.pop(f.name, None)
-        return d
+        return _to_dict(self, drop_unset=True)
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any], validator: EnvelopeValidator) -> Self:
@@ -162,4 +181,5 @@ __all__ = [
     "AuthzRequest",
     "RuntimeContext",
     "now_iso",
+    "to_iso",
 ]

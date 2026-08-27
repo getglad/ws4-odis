@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 from pathlib import Path
 
 import pytest
@@ -25,7 +26,7 @@ def _runtime_context() -> RuntimeContext:
         originating_principal={"id": "fixture-principal", "type": "entra_oidc"},
         agent={"id": "fixture-agent", "type": "fixture_workload_identity"},
         task_intent="Add label",
-        target_resource={"resource_family": "jira", "instance_id": "APF-123"},
+        target_resource={"resource_family": "jira"},
         issued_at="2026-05-28T00:00:00Z",
         policy_digest="a" * 64,
     )
@@ -37,8 +38,9 @@ def _authz_request() -> AuthzRequest:
         subject={
             "originating_principal": {"id": "fixture-principal", "type": "entra_oidc"},
             "agent": {"id": "fixture-agent", "type": "fixture_workload_identity"},
+            "delegation_chain": [],
         },
-        target_resource={"resource_family": "jira", "instance_id": "APF-123"},
+        target_resource={"resource_family": "jira"},
         verb="update_issue",
         request_body={"issue_key": "APF-123", "fields": {"labels": ["odis-demo"]}},
         task_intent="Add label",
@@ -99,3 +101,15 @@ def test_envelope_name_maps_to_a_schema_file_on_disk() -> None:
             f"{envelope.__name__}.ENVELOPE_NAME={envelope.ENVELOPE_NAME!r} "
             f"resolves to no schema file at {schema_path}"
         )
+
+
+def test_authz_request_carries_no_runtime_risk_signal_field() -> None:
+    """Schema and dataclass state the same absence.
+
+    No field stands in for ODIS §6.4's `runtime_risk_signals`, which the checkpoint
+    MUST validate for issuer trust, integrity, replay resistance, freshness and
+    subject correlation before use. A field nothing populates and nothing verifies
+    makes the envelope read as though a signal had been consumed.
+    """
+    names = {f.name for f in dataclasses.fields(AuthzRequest)}
+    assert not {n for n in names if "verdict" in n or "risk" in n}

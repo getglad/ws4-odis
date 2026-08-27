@@ -49,6 +49,7 @@ def test_public_api_covers_expected_surface() -> None:
         "UnknownEnvelopeError",
         "is_valid_event_type",
         "now_iso",
+        "to_iso",
     }
     assert set(contracts.__all__) == expected
     for name in contracts.__all__:
@@ -71,7 +72,7 @@ def test_tier3_full_chain_at_contracts_layer(
         originating_principal={"id": "fixture-principal", "type": "entra_oidc"},
         agent={"id": "fixture-agent", "type": "fixture_workload_identity"},
         task_intent="Add an 'odis-demo' label to APF-123",
-        target_resource={"resource_family": "jira", "instance_id": "APF-123"},
+        target_resource={"resource_family": "jira"},
         issued_at="2026-05-28T00:00:00Z",
         policy_digest=_DIGEST,
     )
@@ -79,7 +80,11 @@ def test_tier3_full_chain_at_contracts_layer(
 
     req = AuthzRequest(
         correlation_id=correlation_id,
-        subject={"originating_principal": ctx.originating_principal, "agent": ctx.agent},
+        subject={
+            "originating_principal": ctx.originating_principal,
+            "agent": ctx.agent,
+            "delegation_chain": [],
+        },
         target_resource=ctx.target_resource,
         verb="update_issue",
         request_body={"issue_key": "APF-123", "fields": {"labels": ["odis-demo"]}},
