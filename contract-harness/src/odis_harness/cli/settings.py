@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     # Type-only: `from __future__ import annotations` makes these dataclass field
     # annotations strings, and nothing here evaluates them at runtime. Contrast
-    # `cli/options.py`, where `Path` is a real runtime subscript inside `Annotated`
+    # `cli/options.py`, where `Path` is a runtime subscript inside `Annotated`
     # and Typer resolves it — there it must stay a runtime import.
     from pathlib import Path
 

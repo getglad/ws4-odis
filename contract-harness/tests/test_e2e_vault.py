@@ -1,9 +1,9 @@
 """Hermetic end-to-end: a dev Vault issues a signed bundle → the Router governs it.
 
-Boots a dev-mode Vault (the `dev_vault` fixture), then drives the real Router-side
+Boots a dev-mode Vault (the `dev_vault` fixture), then drives the Router-side
 path: VaultBundleClient mint-then-load (jwt login → apf/issue) → offline signature
 verification against the exported transit public key → BundleLoader.load_signed →
-the real OPA PolicyEvaluator governs an `update_issue` call (allow on APF-*, deny
+the OPA PolicyEvaluator governs an `update_issue` call (allow on APF-*, deny
 otherwise). Proves a Vault-issued bundle is interchangeable with a fixture bundle for
 governance. Skipped when no vault binary is present.
 """
@@ -159,7 +159,7 @@ async def test_vault_issued_bundle_governs_via_router(
     family = bundle.family("jira-prod")
     assert family is not None
 
-    # The same bundle drives a real OPA governance decision (the Router's gate).
+    # The same bundle drives an OPA governance decision (the Router's gate).
     evaluator = PolicyEvaluator(opa_binary=opa_binary)
     allow = evaluator.evaluate(family, _request(issue_key="APF-123"))
     assert allow.decision == "allow"
@@ -185,7 +185,7 @@ async def test_vault_issued_signature_is_tamper_evident(
 async def test_serve_signed_builds_router_from_vault(
     dev_vault: DevVaultContext, vault_client: VaultBundleClient, opa_binary: str
 ) -> None:
-    # The build_router_signed orchestration `serve --signed` uses, against a REAL
+    # The build_router_signed orchestration `serve --signed` uses, against a
     # dev Vault: fetch (jwt-login → apf/issue) → offline verify → build the Router.
     source = SignedBundleSource(
         client=vault_client,

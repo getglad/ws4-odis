@@ -7,7 +7,7 @@ Two different kinds of constant live here, and the distinction matters.
 to state anything else.
 
 The three `STUB_*` grant-identity values are fallbacks only, for an envelope built with
-no grant in play — contract tests, mostly. Every production path stamps the real values
+no grant in play — contract tests, mostly. Every production path stamps the values
 from the `Bundle` in force, because an envelope has to name the grant it was produced
 under for the audit trail to say which policy authorized a call. The envelope schemas
 therefore leave those three free-form (`minLength: 1`): a pinned value would describe
@@ -24,7 +24,7 @@ STUB_BUNDLE_ID: str = "odis-fixture-bundle"
 #: SemVer-shaped grant version literal, for the same case.
 STUB_BUNDLE_VERSION: str = "0.0.0-odis-harness"
 
-#: Trust-anchor identifier for the same case; not a real trust root.
+#: Trust-anchor identifier for the same case; nothing is anchored to it.
 STUB_TRUST_ROOT_ID: str = "odis-fixture-trust-root"
 
 #: ``schema_version`` value carried by every ODIS Contract Harness envelope. Distinct from

@@ -1,4 +1,4 @@
-"""PolicyEvaluator tests: per-family Rego via real OPA."""
+"""PolicyEvaluator tests: per-family Rego via OPA."""
 
 from __future__ import annotations
 

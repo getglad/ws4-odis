@@ -88,7 +88,7 @@ def attributing_client(
     """An auth-gated client whose Router allows every call and records what it audits.
 
     `AllowAllPolicyEvaluator` keeps the subject of this test on identity rather than on
-    the gate, and removes the `opa` dependency the real evaluator would bring.
+    the gate, and removes the `opa` dependency the evaluator would bring.
     """
     router = factories.router(
         opa_binary="",
@@ -105,7 +105,7 @@ def attributing_client(
 
 @pytest.fixture
 def client(trusted_keys: tuple[VerifyingKey, ...]) -> Iterator[TestClient]:
-    """A real ASGI client over the auth-gated app.
+    """An ASGI client over the auth-gated app.
 
     Entered as a context manager so the session manager's lifespan runs — without it an
     admitted request fails inside the SDK, and only the rejected ones (which never reach
@@ -234,7 +234,7 @@ def test_a_credential_within_the_clock_leeway_is_admitted(
     Guards the pairing with the Vault plugin's `jwtLeeway` — a credential the issuance
     endpoint accepts has to be accepted here too. Over HTTP rather than against the
     verifier directly, because the transport applies an expiry check of its own: asserting
-    on `verify_token` alone passes while every real caller is still 401'd.
+    on `verify_token` alone passes while every legitimate caller is still 401'd.
     """
     token = issuer.mint(audience=_AUDIENCE, subject=_SUBJECT, ttl=-timedelta(seconds=5))
     assert _initialize(client, {"Authorization": f"Bearer {token}"}).status_code == 200

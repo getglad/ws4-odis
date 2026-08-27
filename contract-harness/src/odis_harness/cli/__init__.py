@@ -2,7 +2,7 @@
 
 Two subcommands, both wired to the ODIS Router (the generic MCP-policy-forwarder):
 
-- ``serve`` — runs the Router as a real MCP server over HTTP. Any standard MCP
+- ``serve`` — runs the Router as an MCP server over HTTP. Any standard MCP
   client (Claude Code, MCP Inspector, Cursor) connects to ``http://host:port/mcp``.
   Forwards approved ``tools/call`` to the vendor MCP servers named in the loaded
   bundle's routing entries. With ``--signed`` it fetches a Vault-issued,
@@ -14,7 +14,7 @@ Two subcommands, both wired to the ODIS Router (the generic MCP-policy-forwarder
   in-process vendor stub and prints the outcomes. Zero external infrastructure,
   though it does bind a loopback port and drive the Router over MCP, so it
   exercises the transport and inbound-auth path as well as the policy chain
-  (real OPA + action limits + audit).
+  (OPA + action limits + audit).
 
 Environment variables:
 

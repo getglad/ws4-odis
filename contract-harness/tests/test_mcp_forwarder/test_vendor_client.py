@@ -12,7 +12,7 @@ from odis_harness.mcp_forwarder.vendor_client import (
 )
 
 # pytest-asyncio's event-loop setup touches sockets internally. These tests
-# do not make real network calls; the in-memory client is purely in-process.
+# make no network calls; the in-memory client is purely in-process.
 pytestmark = pytest.mark.enable_socket
 
 

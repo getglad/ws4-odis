@@ -2,7 +2,7 @@
 
 Signature verification is delegated to the injected `SignatureVerifier` protocol;
 a non-production stand-in that accepts any payload lives in `odis_harness.fixtures`.
-Production substitutes a real verifier — the load-path stays the same.
+Production substitutes a verifier — the load-path stays the same.
 
 Schema validation uses Draft 2020-12 against `schemas/odis.bundle.v1.json`.
 Both signature and schema failures are terminal: typed exceptions surface to
@@ -50,7 +50,7 @@ class SignatureVerifier(Protocol):
     """Out-of-scope-but-pluggable.
 
     The caller supplies one — `BundleLoader` has no default, so a load path cannot
-    silently accept an unverified payload. `VaultTransitSignatureVerifier` is the real
+    silently accept an unverified payload. `VaultTransitSignatureVerifier` is the production
     implementation; `odis_harness.fixtures.signature` holds a non-production stand-in.
     The Protocol exists so the load path can call `.verify(payload, signature)` without
     knowing which.
@@ -73,7 +73,7 @@ class BundleLoader:
         """Read, verify signature, validate against schema, construct `Bundle`.
 
         Filesystem path: read the payload, resolve a sibling `.sig` (out of scope
-        for the fixture path — the fixture verifier accepts any input). A real
+        for the fixture path — the fixture verifier accepts any input). A production
         verifier resolves `bundle_path` → `.sig` and verifies both bytes here.
         """
         payload = bundle_path.read_bytes()

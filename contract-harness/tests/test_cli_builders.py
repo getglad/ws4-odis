@@ -227,7 +227,7 @@ async def test_caller_supplied_identity_seam_reaches_the_router() -> None:
     This is the property the architecture claims for every external boundary and that the
     identity seam did not have: `build_router_from_bundle` constructed
     `RuntimeContextFactory` from the two fixture providers internally, so no entry point
-    could substitute a real Passport. A caller passing its own provider had it silently
+    could substitute a production Passport. A caller passing its own provider had it silently
     ignored, which is worse than it not being supported.
     """
 

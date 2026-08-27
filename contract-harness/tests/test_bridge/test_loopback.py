@@ -1,7 +1,7 @@
 """Loopback e2e for the ODIS Bridge leg-2 auth.
 
 Stands up a tiny capturing vendor MCP server on a loopback port, points an
-`HttpMcpClient(auth=BridgeAuth(...))` at it via the MCP SDK, makes a real
+`HttpMcpClient(auth=BridgeAuth(...))` at it via the MCP SDK, makes a
 `tools/call`, and asserts the captured `Authorization` header is `Bearer <jwt>`
 whose `aud` is the configured vendor audience (RFC 8707) and whose `act.sub` is the
 agent subject (RFC 8693). This proves the BridgeAuth seam threads a freshly-exchanged

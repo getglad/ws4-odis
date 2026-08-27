@@ -67,7 +67,7 @@ def vault_client(dev_vault: DevVaultContext) -> VaultBundleClient:
 
 @pytest.fixture(scope="session")
 def envelope_validator() -> EnvelopeValidator:
-    """A validator over the repo's real schemas directory.
+    """A validator over the repo's schemas directory.
 
     Session-scoped: it loads and compiles every schema at construction, so building
     one per test is pure overhead.

@@ -32,7 +32,7 @@ _DIGEST = "a" * 64
 
 def test_public_api_covers_expected_surface() -> None:
     """The umbrella surface every other capability imports — exact set, and
-    every listed name resolves to a real symbol."""
+    every listed name resolves to a symbol."""
     expected = {
         "APF_EVENT_TYPES",
         "ODIS_EXTENSION_TYPES",

@@ -1,6 +1,6 @@
 """Fixture providers — deterministic identities for tests + demos.
 
-Real candidates (SPIFFE / k8s SAT / cloud workload identity / HW-attested for
+Candidates (SPIFFE / k8s SAT / cloud workload identity / HW-attested for
 workload identity; Entra/OIDC / SAML / CLI flow for originating_principal).
 """
 

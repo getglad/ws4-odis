@@ -25,7 +25,7 @@ from tests.factories import audit_sink, in_memory_vendor_from_family
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _EXAMPLE_BUNDLE = _REPO_ROOT / "policy" / "bundle.example.yaml"
 
-# The CLI runs the Router (async + real OPA); event-loop setup touches sockets.
+# The CLI runs the Router (async + OPA); event-loop setup touches sockets.
 pytestmark = pytest.mark.enable_socket
 
 
@@ -227,7 +227,7 @@ def test_module_entry_point_dispatches_and_runs() -> None:
     """`python -m odis_harness` dispatches to cli.main; --help returns 0 via the bridge."""
     import odis_harness.__main__  # noqa: PLC0415
 
-    assert odis_harness.__main__.main is main  # the -m shim points at the real CLI
+    assert odis_harness.__main__.main is main  # the -m shim points at the CLI
     assert main(["--help"]) == 0  # (argv) -> int bridge: --help prints help, returns 0
 
 
@@ -266,7 +266,7 @@ def _ed25519_keypair() -> tuple[Ed25519PrivateKey, str]:
 
 
 def _signed_issue_transport(key: Ed25519PrivateKey) -> httpx.MockTransport:
-    """MockTransport serving jwt-login then apf/issue with a real ed25519 signature
+    """MockTransport serving jwt-login then apf/issue with an ed25519 signature
     over the canonical bundle bytes — mimicking Vault transit, fully in-process."""
     payload = json.dumps(_SIGNED_BUNDLE, sort_keys=True, separators=(",", ":")).encode()
     signature = f"vault:v1:{base64.b64encode(key.sign(payload)).decode('ascii')}"
@@ -326,7 +326,7 @@ async def test_build_router_signed_verifies_offline_and_builds() -> None:
 
 
 async def test_build_router_signed_rejects_wrong_key() -> None:
-    """Offline verification is real, not a fixture: a bundle signed by a different
+    """Offline verification is enforced, not faked: a bundle signed by a different
     key fails closed with BundleSignatureInvalid before the Router is built."""
     signing_key, _ = _ed25519_keypair()
     _, wrong_pubkey_b64 = _ed25519_keypair()  # a DIFFERENT key's public half
@@ -557,7 +557,7 @@ def test_serve_refuses_a_partial_inbound_auth_configuration(
 
 
 # -- how the Authority Grant is trusted ---------------------------------------
-# The grant seam has a real alternative (VaultTransitSignatureVerifier), so the choice is
+# The grant seam has an alternative (VaultTransitSignatureVerifier), so the choice is
 # mandatory rather than defaulted. Identity is deliberately not strict this way: nothing
 # but a stub implements those Protocols, so a required flag there would be a box everyone
 # ticks. See docs/odis-conformance.md, "Deliberate omissions".
@@ -641,7 +641,7 @@ def _local_signed_grant(tmp_path: Path) -> tuple[Path, Path, Ed25519PrivateKey]:
 def test_local_grant_verifies_against_a_supplied_trust_anchor(
     capsys: pytest.CaptureFixture[str], tmp_path: Path, opa_binary: str
 ) -> None:
-    """--bundle-pubkey-file is a real third state, not just a refusal branch."""
+    """--bundle-pubkey-file is a third state, not just a refusal branch."""
     bundle, anchor, _ = _local_signed_grant(tmp_path)
     exit_code, stdout, stderr = _run(
         capsys, "demo", "--bundle", str(bundle), "--bundle-pubkey-file", str(anchor),
@@ -656,7 +656,7 @@ def test_local_grant_verifies_against_a_supplied_trust_anchor(
 def test_a_tampered_local_grant_is_refused(
     capsys: pytest.CaptureFixture[str], tmp_path: Path, opa_binary: str
 ) -> None:
-    """The verification is real: edit the payload and the same signature no longer matches."""
+    """Verification is enforced: edit the payload and the same signature no longer matches."""
     bundle, anchor, _ = _local_signed_grant(tmp_path)
     bundle.write_bytes(bundle.read_bytes().replace(b"jira-prod", b"jira-pr0d"))
     exit_code, _, stderr = _run(

@@ -90,7 +90,7 @@ def test_envelope_name_maps_to_a_schema_file_on_disk() -> None:
     (EnvelopeValidator keys validators by file stem). Renaming or deleting a
     schema file without updating ENVELOPE_NAME would break every `from_dict()`
     at runtime while a literal-equality assertion stayed green — so pin the
-    name to a real file. (The round-trip tests above catch a *wrong* name; this
+    name to an existing file. (The round-trip tests above catch a *wrong* name; this
     catches a *missing* schema.)"""
     schemas_dir = _REPO_ROOT / "schemas"
     for envelope in (RuntimeContext, AuthzRequest, AuditEvent):

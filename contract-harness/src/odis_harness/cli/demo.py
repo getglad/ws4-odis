@@ -60,7 +60,7 @@ if TYPE_CHECKING:
 # -- demo ---------------------------------------------------------------------
 
 #: Identity the demo mints for itself. `.invalid` is RFC 2606 reserved, so these names
-#: cannot collide with or resolve to anything real — the same reason the envelope schema
+#: cannot collide with or resolve to anything routable — the same reason the envelope schema
 #: `$id`s are URNs rather than a `.local` host nothing serves.
 _DEMO_ISSUER = "https://issuer.demo.odis.invalid/"
 _DEMO_AUDIENCE = "odis-router-demo"
@@ -137,13 +137,13 @@ def _demo_inbound_verifier(issuer: FixtureIdentityIssuer) -> TokenVerifier:
 
 
 async def _drive_demo_scenarios(url: str, token: str) -> int:
-    """Run every scenario as a real MCP client would, and report what the agent sees.
+    """Run every scenario as an MCP client would, and report what the agent sees.
 
     Deliberately over the wire rather than calling `Router.forward` directly: the direct
     call skips the MCP server, its handler, the discovery filter and the whole inbound-auth
     path, which is most of what an adopter actually deploys. The bearer rides on a
     preconfigured `httpx.AsyncClient` because `streamable_http_client` takes no `headers`
-    argument — in a real deployment this is where an agent would attach a credential it
+    argument — in a production deployment this is where an agent would attach a credential it
     fetched from a workload API.
     """
     import httpx  # noqa: PLC0415 — heavy; only the HTTP demo path needs it
@@ -284,7 +284,7 @@ def _run_demo(settings: DemoSettings) -> int:
             )
 
             # The demo is its own issuer AND its own caller. That is not a delivery story
-            # — everything here is one process — but it does exercise the real verify path,
+            # — everything here is one process — but it does exercise the verify path,
             # so the audit trail carries a subject the Router received rather than the
             # `mcp-client` constant it would otherwise assume.
             issuer = FixtureIdentityIssuer.generate(issuer=_DEMO_ISSUER, key_id="demo-key-1")

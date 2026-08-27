@@ -71,7 +71,7 @@ decision := {"decision": "allow", "obligations": {"allowed_fields": ["labels"]}}
 
 @functools.lru_cache(maxsize=1)
 def envelope_validator() -> EnvelopeValidator:
-    """A validator over the repo's real schemas directory.
+    """A validator over the repo's schemas directory.
 
     Cached: constructing one reads and compiles every schema, and the result is
     read-only, so every sink and fixture can share a single instance.
@@ -89,7 +89,7 @@ def audit_sink() -> AuditSink:
 
 
 class CapturingAuditSink(AuditSink):
-    """Records every emitted event *and* runs the real validate-then-write pipeline.
+    """Records every emitted event *and* runs the validate-then-write pipeline.
 
     Subclasses `AuditSink` rather than duck-typing it for two reasons: `Router(audit=...)`
     accepts it without a `type: ignore`, and router-level tests still exercise schema
@@ -158,7 +158,7 @@ def bundle(
 def example_bundle() -> Bundle:
     """The shipped `policy/bundle.example.yaml`, loaded with the fixture verifier.
 
-    Tests that assert against the real example bundle guard the Rego-vs-OPA-input
+    Tests that assert against the shipped example bundle guard the Rego-vs-OPA-input
     contract: the shipped policy has to agree with what the Router actually sends.
     """
     loader = BundleLoader(signature_verifier=FixtureSignatureVerifier())
@@ -264,7 +264,7 @@ class AllowAllPolicyEvaluator(PolicyEvaluator):
 
     Subclasses `PolicyEvaluator` so `Router(policy_evaluator=...)` accepts it directly.
     For tests whose subject is a later stage of the forward pipeline — action limits,
-    audit shape — where running a real policy would only add an `opa` dependency.
+    audit shape — where running Rego through OPA would only add a dependency.
     """
 
     def __init__(self) -> None:
@@ -316,7 +316,7 @@ def in_memory_vendor_from_family(fam: Family) -> InMemoryMcpClient:
 
 
 def free_port() -> int:
-    """An unused localhost TCP port, for tests that bind a real server."""
+    """An unused localhost TCP port, for tests that bind a server."""
     return free_loopback_port()
 
 

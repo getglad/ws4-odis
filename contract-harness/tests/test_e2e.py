@@ -1,10 +1,10 @@
-"""End-to-end: real MCP client → HTTP → Router (policy gate) → HTTP → vendor.
+"""End-to-end: MCP client → HTTP → Router (policy gate) → HTTP → vendor.
 
 The deployment-shaped proof that every leg works stitched together:
 
     SDK MCP client
-        --HTTP--> ODIS Router (built via cli.build_router, real OPA gate)
-            --HTTP--> a real vendor MCP server (uvicorn)
+        --HTTP--> ODIS Router (built via cli.build_router, OPA gate)
+            --HTTP--> a vendor MCP server (uvicorn)
 
 Both servers run on loopback ports; the client is the official SDK Streamable
 HTTP client. Exercises discovery over HTTP, an allowed tools/call forwarded to
@@ -74,7 +74,7 @@ def _http_vendor_factory(family: Family) -> HttpMcpClient:
 
 
 def _vendor_app() -> Starlette:
-    """A real (if minimal) vendor MCP server — stands in for a Jira MCP server.
+    """A minimal vendor MCP server — stands in for a Jira MCP server.
 
     Echoes the issue_key back so the test can prove the agent's args flowed all
     the way through the Router to the vendor.
@@ -110,7 +110,7 @@ async def test_e2e_full_chain_allow_and_deny(tmp_path: Path, opa_binary: str) ->
     )
 
     async with serving_http(_vendor_app(), port=vendor_port):
-        # Build the Router via the real CLI wiring: HttpMcpClient toward the
+        # Build the Router via the CLI wiring: HttpMcpClient toward the
         # vendor URL, discovery populated over HTTP.
         router = await build_router(
             bundle_path=bundle_path,
@@ -119,8 +119,8 @@ async def test_e2e_full_chain_allow_and_deny(tmp_path: Path, opa_binary: str) ->
             signature_verifier=FixtureSignatureVerifier(),
             wiring=RouterWiring(
                 context_factory=factories.context_factory(),
-                # The real HTTP client, not an in-memory double — this test exists to
-                # prove discovery and forwarding cross a real socket to a real vendor.
+                # The HTTP client, not an in-memory double — this test exists to
+                # prove discovery and forwarding cross a socket to a separately-served vendor.
                 vendor_client_factory=_http_vendor_factory,
             ),
         )

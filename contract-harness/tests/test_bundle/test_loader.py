@@ -58,7 +58,7 @@ def loader() -> BundleLoader:
 
 def test_fixture_verifier_always_accepts() -> None:
     """The fixture verifier is the do-nothing implementation used in tests
-    and the harness's local-dev mode. Real production substitutes."""
+    and the harness's local-dev mode. Production substitutes."""
     assert FixtureSignatureVerifier().verify(b"any-payload", b"any-signature") is True
 
 

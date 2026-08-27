@@ -137,7 +137,7 @@ def _actor(ctx: RuntimeContext | None, caller: CallerIdentity | None) -> dict[st
     with or be shadowed by another `extra` entry.
 
     CC-02 asks for the logical agent, the executing runtime instance and the
-    authenticated originating principal. The agent and the principal are real; the
+    authenticated originating principal. The agent and the principal are recorded; the
     runtime instance is absent, because nothing the Router receives distinguishes *this*
     run of an agent from the agent generally — the verified credential's subject names
     the workload, and no per-instance claim is extracted from it. Recorded as absent

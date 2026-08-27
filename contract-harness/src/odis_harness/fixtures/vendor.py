@@ -1,7 +1,7 @@
 """In-process vendor client — the `McpClient` seam, without a socket.
 
 Lives here rather than beside the Protocol it implements: `vendor_client.py` is on the
-production path and should carry the contract and the real `HttpMcpClient`, not a double.
+production path and should carry the contract and `HttpMcpClient`, not a double.
 """
 
 from __future__ import annotations

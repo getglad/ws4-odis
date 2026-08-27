@@ -3,7 +3,7 @@
 #
 # The middle rung of the demo ladder: same Router, same gate, same MCP transport and
 # in-process vendor as `mise run demo` — the only difference is where the Authority Grant
-# comes from and that its Ed25519 signature is verified for real, offline, rather than by
+# comes from and that its Ed25519 signature is verified offline, rather than by
 # the fixture verifier. `demo-openshell` then adds the enforcing substrate on top.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"   # .../vault

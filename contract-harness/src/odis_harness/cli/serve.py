@@ -369,9 +369,9 @@ def _inbound_mode(settings: InboundAuthSettings) -> str:
     )
 
 
-#: Printed whenever inbound auth is on. `serve` speaks plain HTTP and terminates no TLS,
-#: so the bearer crosses the wire in the clear: anyone on-path can read it and replay it
-#: until it expires. Stated at startup rather than left to the docs, because a Router
+#: Printed whenever inbound auth is on. `serve` speaks plain HTTP and takes no certificate
+#: or key, so the bearer crosses the wire readable: anyone on-path can read it and replay
+#: it until it expires. Stated at startup rather than left to the docs, because a Router
 #: that authenticates looks protected and this is the assumption that makes it not.
 _CLEARTEXT_BEARER_WARNING = (
     "WARNING:    serves plain HTTP — the bearer is readable and replayable by anyone "

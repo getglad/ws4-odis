@@ -181,7 +181,7 @@ def _audit_handler_refusal(
 
     `caller` is the actor when one was resolved, and `None` when the call could not be
     attributed at all. No full identity context either way: minting one calls the
-    identity providers — network I/O in a real deployment — on agent-controlled input
+    identity providers — network I/O in a production deployment — on agent-controlled input
     that is already being rejected, so the event carries the agent without the
     originating principal.
     """
@@ -209,7 +209,7 @@ def _refusal_result(reason_code: ReasonCode) -> CallToolResult:
 
 def _success_result(result: ToolResult) -> CallToolResult:
     # The Router forwarded successfully, but the vendor may have returned an
-    # in-band tool error — relay its real status rather than hard-coding success.
+    # in-band tool error — relay its status rather than hard-coding success.
     return CallToolResult(content=_to_text_blocks(result.content), isError=result.is_error)
 
 

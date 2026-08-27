@@ -7,7 +7,7 @@ identically. It exists so the zero-infrastructure demo can run without key mater
 `signature_verifier` is a required argument on every load path, so choosing this is a
 visible act at the call site rather than a default.
 
-The real implementation is `odis_harness.bundle.vault_verifier.VaultTransitSignatureVerifier`
+Production uses `odis_harness.bundle.vault_verifier.VaultTransitSignatureVerifier`
 (offline Ed25519).
 """
 

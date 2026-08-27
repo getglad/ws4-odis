@@ -1,7 +1,7 @@
 """MCP server glue (build_mcp_server) via in-memory client.
 
 Uses the SDK's in-memory connected client/server so the full MCP lifecycle
-(initialize → tools/list → tools/call) is exercised without a real socket.
+(initialize → tools/list → tools/call) is exercised without a socket.
 """
 
 from __future__ import annotations

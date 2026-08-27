@@ -7,7 +7,7 @@ the validate / map / sign path is unchanged.
 
 Fixture/dev material only: the private key is generated in-process, never persisted.
 It exists to make the issuance flow exercisable hermetically. ES256 (EC P-256) mirrors
-the shape of a real JWT-SVID.
+the shape of a JWT-SVID.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ _DEFAULT_TTL = timedelta(minutes=5)
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class FixtureIdentityIssuer:
-    """An in-process ES256 issuer standing in for a real workload IdP."""
+    """An in-process ES256 issuer standing in for SPIRE."""
 
     issuer: str
     key_id: str

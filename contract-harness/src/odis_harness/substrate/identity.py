@@ -1,7 +1,7 @@
 """AgentRuntimeCredential + identity provider Protocols.
 
-What a real workload-identity provider (SPIFFE, k8s SAT, a cloud workload-identity
-token, HW-attested) would *issue*, and what a real originating-principal source
+What a workload-identity provider (SPIFFE, k8s SAT, a cloud workload-identity
+token, HW-attested) would *issue*, and what an originating-principal source
 (Entra/OIDC) would surface. The Router consumes both; it issues neither.
 """
 
@@ -40,7 +40,7 @@ class OriginatingPrincipal:
 class WorkloadIdentityProvider(Protocol):
     """Passport — issues short-lived runtime credentials.
 
-    Real candidates: SPIFFE SVID, Kubernetes SAT, a cloud workload-identity
+    Candidates: SPIFFE SVID, Kubernetes SAT, a cloud workload-identity
     token, a hardware-attested token. The substrate consumes; it does not issue.
     """
 

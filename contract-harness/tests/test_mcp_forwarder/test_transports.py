@@ -1,6 +1,6 @@
 """HTTP transport.
 
-`build_asgi_app` is checked structurally; the real-bind smoke test starts a
+`build_asgi_app` is checked structurally; the bind smoke test starts a
 uvicorn server on a loopback port and drives it with the SDK's Streamable HTTP
 client to prove the actual deployment path (initialize + tools/list) works.
 """

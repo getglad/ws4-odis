@@ -1,7 +1,7 @@
-"""HttpMcpClient — the real vendor MCP client, over HTTP.
+"""HttpMcpClient — the vendor MCP client, over HTTP.
 
 The client-transport counterpart to `transports.py`. Tested against
-a real vendor MCP server (a trivial SDK Server) bound to a loopback port.
+a vendor MCP server (a trivial SDK Server) bound to a loopback port.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ pytestmark = pytest.mark.enable_socket
 
 
 def _vendor_server() -> Server:
-    """A minimal stand-in for a vendor MCP server (e.g. a real Jira MCP)."""
+    """A minimal stand-in for a vendor MCP server (e.g. a Jira MCP)."""
     server: Server = Server("fake-jira-vendor")
 
     @server.list_tools()  # type: ignore[no-untyped-call, untyped-decorator]

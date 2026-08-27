@@ -7,7 +7,7 @@ re-pointed at a different vendor produces a different digest.
 It *detects*, it does not prevent. Nothing compares it to a reference value — it is
 stamped on every envelope so an auditor can reconcile a decision against the exact grant
 that authorized it. Prevention is the signature over the whole payload, and only the
-Vault path verifies that for real. On a local grant the caller must choose:
+Vault path verifies it. On a local grant the caller must choose:
 `--bundle-pubkey-file` verifies a sibling `.sig`, `--trust-bundle-unverified` accepts an
 unverified payload, and there is no default.
 """

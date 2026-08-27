@@ -1,4 +1,4 @@
-"""PolicyEvaluator — per-family Rego evaluation via real OPA.
+"""PolicyEvaluator — per-family Rego evaluation via OPA.
 
 ODIS terminology: this is the Router's policy engine (APF Phase 1 calls it the
 RPV). The evaluator uses the low-level `opa_eval` primitive and operates on a

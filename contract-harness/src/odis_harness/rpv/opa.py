@@ -1,7 +1,7 @@
 """`opa eval` subprocess wrapper.
 
 Spawns the `opa` binary in a sandboxed mode and parses the result. The sandbox
-makes the "hermetic policy evaluation" claim real on two fronts: a minimal
+makes the "hermetic policy evaluation" claim hold on two fronts: a minimal
 process environment (so a policy's `opa.runtime().env` cannot read the Router's
 secrets) and a capabilities allowlist that removes the network/DNS built-ins
 (`http.send`, `net.lookup_ip_addr`) — a bundle's Rego cannot exfiltrate.

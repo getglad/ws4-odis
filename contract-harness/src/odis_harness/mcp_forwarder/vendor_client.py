@@ -50,7 +50,7 @@ class ToolResult:
     `content` mirrors the MCP spec's content list (text/image/resource).
     `is_error` mirrors the spec's `isError`: a tool-level failure the vendor
     reported in-band (distinct from `VendorUnreachable`, a transport failure).
-    The Router relays it so the agent sees the vendor's real success/error status.
+    The Router relays it so the agent sees the vendor's success/error status.
     """
 
     content: list[Mapping[str, Any]]

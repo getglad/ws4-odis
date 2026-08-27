@@ -2,7 +2,7 @@
 # Boot a hermetic dev Vault with the apf-bundle-issuer plugin, and provision it.
 #
 # Sourced, not executed. Both `vault/smoke.sh` (issuance only) and
-# `vault/demo-signed.sh` (issuance feeding a real Router gate) need exactly this
+# `vault/demo-signed.sh` (issuance feeding a Router gate) need exactly this
 # setup; it lives here so the two cannot drift on the readiness poll, the
 # refuse-if-something-is-already-listening check, or the plugin directory.
 #

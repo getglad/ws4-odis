@@ -1,6 +1,6 @@
 """Router action-limit behavior for read-only policed tools.
 
-These tests avoid the real OPA subprocess: the policy result is fixed via
+These tests avoid the OPA subprocess: the policy result is fixed via
 `factories.AllowAllPolicyEvaluator`, so the coverage is specifically on
 `Router.forward`'s post-policy action-limit gate.
 """

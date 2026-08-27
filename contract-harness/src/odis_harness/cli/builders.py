@@ -113,7 +113,7 @@ def resolve_file_verifier(
 
     Exactly one of the two must be chosen; there is no default, because a default here is
     an unverified grant nobody decided to accept. Demanding the choice is meaningful rather
-    than ceremony because a real alternative exists: `VaultTransitSignatureVerifier`.
+    than ceremony because an alternative exists: `VaultTransitSignatureVerifier`.
 
     `bundle_pubkey_file` verifies the sibling `<bundle>.sig` that `BundleLoader.load`
     resolves. That signature must be in Vault transit form (`vault:v<N>:<base64>`) — the
@@ -278,7 +278,7 @@ class RouterWiring:
     """The two boundaries the Router needs that an Authority Grant does not supply.
 
     Grouped, and required, on purpose. The harness's central claim is that every external
-    boundary is a constructor-injected Protocol, so swapping a fixture for a real
+    boundary is a constructor-injected Protocol, so swapping a fixture for a production
     implementation never touches the Router. Required rather than defaulted, so a caller
     has to say what it is wiring and a stub cannot arrive unannounced.
 
@@ -294,7 +294,7 @@ class RouterWiring:
 def stub_context_factory() -> RuntimeContextFactory:
     """The non-production identity providers the CLI wires when no Passport is configured.
 
-    Named `stub`, not `fixture`, and supplied explicitly rather than defaulted: no real
+    Named `stub`, not `fixture`, and supplied explicitly rather than defaulted: no production
     `WorkloadIdentityProvider` or `OriginatingPrincipalProvider` ships, so requiring an
     operator to choose one would be a box everyone ticks. The honesty lives elsewhere
     instead — the startup banner names these, and `agent.type` records
@@ -544,7 +544,7 @@ def make_fixture_bridged_http_vendor_factory() -> Callable[[Family], McpClient]:
 
     Stands up a `FixtureTokenExchanger` (the in-process RFC 7523/8693 broker stand-in)
     plus a Passport stand-in (`fixture_subject_token_provider`) minting a fresh agent
-    workload JWT per exchange. No network, no static bearer; the real broker is the
+    workload JWT per exchange. No network, no static bearer; the broker is the
     production `TokenExchanger` implementation.
     """
     # Lazy: the Bridge + fixture stand-ins are only needed on the opt-in `--bridge` path.

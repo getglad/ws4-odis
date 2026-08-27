@@ -1,4 +1,4 @@
-"""HttpMcpClient — real vendor MCP client over HTTP.
+"""HttpMcpClient — vendor MCP client over HTTP.
 
 The production `McpClient` toward a vendor MCP server, wrapping the SDK's
 Streamable HTTP client. Isolated from `vendor_client.py` (which stays
