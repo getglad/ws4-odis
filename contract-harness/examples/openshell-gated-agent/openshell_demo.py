@@ -55,8 +55,8 @@ from odis_harness.cli.builders import (
 )
 from odis_harness.mcp_forwarder.server import build_mcp_server
 from odis_harness.mcp_forwarder.transports import (
-    MCP_MOUNT_PATH,
     build_asgi_app,
+    mcp_url,
     serving_http,
 )
 from odis_harness.vault.dev import DevVault, plugin_built, vault_bin
@@ -273,7 +273,7 @@ async def main() -> int:
         print(f"[audit] events -> {audit_dest}")
         async with serving_http(_vendor_app(), host=_BIND_HOST, port=VENDOR_PORT):
             # The Router reaches the vendor host-locally; the sandbox cannot (policy blocks it).
-            vendor_url = f"http://127.0.0.1:{VENDOR_PORT}{MCP_MOUNT_PATH}"
+            vendor_url = mcp_url("127.0.0.1", VENDOR_PORT)
             with DevVault() as ctx:
                 _point_mapping_at_local_vendor(ctx.addr, vendor_url)
                 source = SignedBundleSource(
@@ -307,7 +307,12 @@ async def main() -> int:
                 app = build_asgi_app(
                     build_mcp_server(router, requires_authenticated_caller=False)
                 )
-                async with serving_http(app, host=_BIND_HOST, port=ROUTER_PORT):
+                async with serving_http(
+                    app,
+                    host=_BIND_HOST,
+                    port=ROUTER_PORT,
+                    log_level=os.environ.get("ODIS_DEMO_LOG_LEVEL", "error"),
+                ):
                     print(f"[router] serving on 0.0.0.0:{ROUTER_PORT} (reachable from the sandbox)")
                     rc = await _run_agent_in_sandbox()
 

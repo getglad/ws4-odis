@@ -36,6 +36,24 @@ if TYPE_CHECKING:
 #: Path the MCP endpoint is mounted at. Clients connect to `http://host:port/mcp`.
 MCP_MOUNT_PATH = "/mcp"
 
+#: The path an MCP client must POST to. Starlette's `Mount` answers the bare mount path
+#: with a 307 to the trailing-slash form, so a client using `MCP_MOUNT_PATH` directly pays
+#: a redirect and re-sends its body on every request. Under an egress proxy that re-POST
+#: intermittently fails, which surfaced as a ~1-in-3 failure of the gated OpenShell demo:
+#: the `tools/call` redirect was not followed and the agent saw a read error while the
+#: Router never received the call. Clients use `mcp_url`; the mount itself keeps the bare
+#: path, which is what `Mount` expects.
+MCP_CLIENT_PATH = MCP_MOUNT_PATH + "/"
+
+
+def mcp_url(host: str, port: int) -> str:
+    """The URL an MCP client should connect to for a Router or vendor stub on `host:port`.
+
+    One builder because the trailing slash is the whole point: six call sites previously
+    assembled this string themselves and every one of them omitted it.
+    """
+    return f"http://{host}:{port}{MCP_CLIENT_PATH}"
+
 
 def build_asgi_app(
     server: Server,
@@ -115,7 +133,7 @@ def free_loopback_port() -> int:
 
 @contextlib.asynccontextmanager
 async def serving_http(
-    app: Starlette, *, host: str = "127.0.0.1", port: int
+    app: Starlette, *, host: str = "127.0.0.1", port: int, log_level: str = "error"
 ) -> AsyncIterator[None]:
     """Serve `app` for the duration of the block, then shut it down.
 
@@ -126,7 +144,10 @@ async def serving_http(
     Takes a Starlette app rather than an MCP `Server` because callers also stand up plain
     vendor stubs with it, which are not MCP servers at all.
     """
-    server = uvicorn.Server(uvicorn.Config(app, host=host, port=port, log_level="error"))
+    # `log_level` defaults to errors only, so a demo's output stays its own. Raise it to
+    # "info" for an access log when diagnosing whether a request reached the app at all —
+    # the difference between "the gate refused it" and "it never arrived".
+    server = uvicorn.Server(uvicorn.Config(app, host=host, port=port, log_level=log_level))
     task = asyncio.create_task(server.serve())
     try:
         for _ in range(_STARTUP_POLLS):
@@ -166,9 +187,11 @@ async def serve_http(
 
 
 __all__ = [
+    "MCP_CLIENT_PATH",
     "MCP_MOUNT_PATH",
     "build_asgi_app",
     "free_loopback_port",
+    "mcp_url",
     "serve_http",
     "serving_http",
 ]

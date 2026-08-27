@@ -22,6 +22,7 @@ from odis_harness.mcp_forwarder.server import build_mcp_server
 from odis_harness.mcp_forwarder.transports import (
     MCP_MOUNT_PATH,
     build_asgi_app,
+    mcp_url,
 )
 from tests import factories
 
@@ -77,7 +78,7 @@ async def test_http_server_initialize_and_list_tools_over_real_socket() -> None:
             await asyncio.sleep(0.05)
         assert uv_server.started, "uvicorn did not start"
 
-        url = f"http://127.0.0.1:{port}{MCP_MOUNT_PATH}"
+        url = mcp_url("127.0.0.1", port)
         async with (
             streamable_http_client(url) as (read, write, _get_session_id),
             ClientSession(read, write) as session,

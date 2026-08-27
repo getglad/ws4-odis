@@ -30,13 +30,19 @@ env = { ODIS_AUDIT_OUTPUT = "/tmp/odis-demo-audit.jsonl" }
 run = "odis-harness demo --trust-bundle-unverified"
 
 [tasks.test]
-description = "Run the pytest suite (the requires_vault slice runs only if vault is already on PATH; test-all guarantees it)"
+# `go` is a tool rather than a `depends` on the build task, so nothing is built
+# unconditionally. `conftest`'s `plugin_current()` detects a plugin binary older than its
+# sources, and `DevVault.build_plugin` rebuilds it — but only from the `dev_vault`
+# fixture, which runs only when `vault` resolves. So the rebuild happens exactly when the
+# Vault slice is about to exercise the binary, and never on a machine where that slice
+# skips. Without this the stale binary is skipped rather than rebuilt, which hides it.
+description = "Run the pytest suite (rebuilds a stale Vault plugin only when the slice runs)"
+tools = { go = "1.25" }
 run = "pytest"
 
 [tasks.test-all]
-# `test` only reaches the requires_vault slice when vault happens to be on PATH
-# already; otherwise conftest auto-skips those 9 tests and the run still reports green.
-# This task provisions vault and builds the plugin, so the slice always runs.
+# Pins `vault` for this task so the slice is reachable on a machine where it is not
+# already on PATH; `test` covers the plugin build for both.
 description = "Run the pytest suite with the Vault slice reachable (vault + built plugin)"
 depends = ["build-vault-plugin"]
 tools = { vault = "latest" }

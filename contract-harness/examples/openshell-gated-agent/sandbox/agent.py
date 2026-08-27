@@ -21,7 +21,14 @@ import sys
 
 # Defaults match the demo orchestration. host.openshell.internal is injected into the
 # sandbox by the OpenShell Docker driver and resolves to the host (docker-bridge gateway).
-ROUTER_URL = os.environ.get("ODIS_ROUTER_URL", "http://host.openshell.internal:8088/mcp")
+#: Trailing slash matters: the Router mounts MCP at `/mcp`, and Starlette answers the
+#: bare path with a 307 to `/mcp/`. Following that redirect means re-POSTing the body
+#: through the egress proxy on every call, which intermittently fails. This script
+#: runs inside the sandbox and cannot import `transports.mcp_url`, so it states the
+#: same path literally.
+ROUTER_URL = os.environ.get(
+    "ODIS_ROUTER_URL", "http://host.openshell.internal:8088/mcp/"
+)
 VENDOR_HOST = os.environ.get("ODIS_VENDOR_HOST", "host.openshell.internal")
 VENDOR_PORT = int(os.environ.get("ODIS_VENDOR_PORT", "8099"))
 

@@ -42,12 +42,15 @@ def dev_vault() -> Iterator[DevVaultContext]:
     Skipped (not failed) when the vault binary or built plugin is unavailable, so
     the suite stays green in environments without them — like requires_opa.
     """
-    from odis_harness.vault.dev import DevVault, plugin_built, vault_bin  # noqa: PLC0415
+    from odis_harness.vault.dev import DevVault, plugin_current, vault_bin  # noqa: PLC0415
 
     if vault_bin() is None:
         pytest.skip("vault binary not available (set ODIS_VAULT_BIN)")
-    if not plugin_built() and not DevVault.build_plugin():
-        pytest.skip("apf-bundle-issuer plugin not built and no Go toolchain to build it")
+    # Currency, not presence: a binary older than its sources fails on the fields it
+    # does not yet emit, which looks like a code defect. Rebuilt when a toolchain is
+    # available, skipped when not.
+    if not plugin_current() and not DevVault.build_plugin():
+        pytest.skip("apf-bundle-issuer plugin stale or unbuilt, and no Go toolchain")
     with DevVault() as ctx:
         yield ctx
 
