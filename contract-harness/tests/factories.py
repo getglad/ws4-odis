@@ -6,15 +6,23 @@ rather than declaring their own, so a change to a contract lands in one place.
 
 Defaults describe the canonical Tier-3 scenario: one `jira-prod` family governing
 `update_issue`, labels-only on `APF-` issues.
+
+The Bridge/OAuth builders (`exchange_anchor`, `StubTokenExchanger`) follow the same rule as
+the rest: one construction point per contract, so a change to `ExchangeAuditAnchor`'s fields
+or to the `TokenExchanger` protocol lands here and nowhere else.
 """
 
 from __future__ import annotations
 
 import functools
 import io
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from odis_harness.audit import AuditSink
+from odis_harness.bridge.audit import ExchangeAuditAnchor
+from odis_harness.bridge.exchange import ExchangedToken
 from odis_harness.bundle import (
     Bundle,
     BundleLoader,
@@ -45,6 +53,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from odis_harness.bundle.types import DefaultMode
+    from odis_harness.cli.builders import VendorClientContext
     from odis_harness.contracts import AuditEvent
 
 # -- shared constants ---------------------------------------------------------
@@ -175,7 +184,14 @@ def authz_request(
     """An `AuthzRequest` in the shape `Router._build_authz_request` produces."""
     return AuthzRequest(
         correlation_id=correlation_id,
-        subject={"originating_principal": {"id": "s"}, "agent": {"id": "a"}},
+        subject={
+            "originating_principal": {"id": "s"},
+            "agent": {"id": "a"},
+            # Required, and empty for a root record: this harness delegates to no
+            # sub-agent. `test_router_built_authz_request_validates_against_its_schema`
+            # is what keeps this factory in step with what the Router emits.
+            "delegation_chain": [],
+        },
         target_resource={"resource_family": FAMILY_NAME},
         verb=verb,
         request_body=dict(
@@ -220,7 +236,7 @@ def wiring(vendor: McpClient | None = None) -> RouterWiring:
     """
     if vendor is not None:
         return RouterWiring(
-            context_factory=context_factory(), vendor_client_factory=lambda _family: vendor
+            context_factory=context_factory(), vendor_client_factory=lambda _ctx: vendor
         )
     return RouterWiring(
         context_factory=context_factory(),
@@ -279,6 +295,64 @@ class AllowAllPolicyEvaluator(PolicyEvaluator):
         )
 
 
+# -- terminal-exchange doubles (ODIS-CC-06) -----------------------------------
+
+
+def exchange_anchor(
+    sink: AuditSink | None = None,
+    *,
+    target_endpoint_id: str = "jira-prod-mcp-v1",
+) -> ExchangeAuditAnchor:
+    """An `ExchangeAuditAnchor` over `sink`, defaulting to one that validates and discards.
+
+    The default suits a test whose subject is the token lifecycle rather than the record;
+    pass a `CapturingAuditSink` when the emitted event is what is being asserted.
+
+    The bundle is built from `target_endpoint_id` rather than from the factory default, so
+    the anchor's target and the grant's declared target cannot disagree — a mismatch would
+    be fixture metadata crossed between families, which no assertion would catch.
+    `family_name` is not a parameter: the bundle keys its single family on `FAMILY_NAME`,
+    so a caller-supplied name would be the same crossing in the other direction.
+    """
+    return ExchangeAuditAnchor(
+        audit=sink if sink is not None else audit_sink(),
+        bundle=bundle(family(endpoint_id=target_endpoint_id)),
+        target_endpoint_id=target_endpoint_id,
+        family_name=FAMILY_NAME,
+    )
+
+
+@dataclass
+class StubTokenExchanger:
+    """A `TokenExchanger` double that mints a distinct bearer per call.
+
+    `expiries` is consumed in order and the last value repeats, so a test drives the
+    freshness path by listing the expiries it wants rather than by patching a clock. The
+    bearer encodes the call index, which is what makes a re-mint observable, and
+    `subjects` records each subject token seen — proving a FRESH one is fetched per
+    re-mint rather than a cached one replayed.
+    """
+
+    expiries: list[datetime] = field(default_factory=list)
+    bearer_prefix: str = "bearer"
+    calls: int = 0
+    subjects: list[str] = field(default_factory=list)
+
+    async def exchange(self, *, subject_token: str, audience: str) -> ExchangedToken:
+        self.subjects.append(subject_token)
+        index = self.calls
+        self.calls += 1
+        return ExchangedToken(
+            bearer=f"{self.bearer_prefix}-{index}-{audience}",
+            expires_at=self._expiry(index),
+        )
+
+    def _expiry(self, index: int) -> datetime:
+        if not self.expiries:
+            return datetime.now(UTC) + timedelta(minutes=5)
+        return self.expiries[min(index, len(self.expiries) - 1)]
+
+
 # -- vendor doubles -----------------------------------------------------------
 
 
@@ -307,9 +381,11 @@ def in_memory_vendor(
     )
 
 
-def in_memory_vendor_from_family(fam: Family) -> InMemoryMcpClient:
-    """An in-memory vendor serving exactly the tools `fam` governs."""
-    return in_memory_vendor(tools={tool: f"handled {tool}" for tool in fam.governed_tools()})
+def in_memory_vendor_from_family(ctx: VendorClientContext) -> InMemoryMcpClient:
+    """An in-memory vendor serving exactly the tools `ctx.family` governs."""
+    return in_memory_vendor(
+        tools={tool: f"handled {tool}" for tool in ctx.family.governed_tools()}
+    )
 
 
 # -- network ------------------------------------------------------------------
@@ -325,12 +401,14 @@ __all__ = [
     "FAMILY_NAME",
     "AllowAllPolicyEvaluator",
     "CapturingAuditSink",
+    "StubTokenExchanger",
     "audit_sink",
     "authz_request",
     "bundle",
     "context_factory",
     "envelope_validator",
     "example_bundle",
+    "exchange_anchor",
     "family",
     "free_port",
     "in_memory_vendor",

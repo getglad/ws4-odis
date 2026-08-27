@@ -2,11 +2,21 @@
 
 from __future__ import annotations
 
+import uuid
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
 import pytest
 
+from odis_harness.contracts import AuthzRequest, EnvelopeValidator
+from odis_harness.mcp_forwarder.policy import PolicyDecision, PolicyEvaluator
 from odis_harness.mcp_forwarder.reason_codes import ReasonCode
 from odis_harness.mcp_forwarder.router import McpRefusal
+from odis_harness.paths import default_schemas_dir
 from tests import factories
+
+if TYPE_CHECKING:
+    from odis_harness.bundle import Family
 
 pytestmark = [pytest.mark.enable_socket, pytest.mark.requires_opa]
 
@@ -235,3 +245,86 @@ async def test_forward_audits_the_evaluators_reason_not_a_blanket_deny(
         await router.forward("jira-prod", family, "update_issue", _ALLOWED_ARGS)
     assert exc.value.reason_code == ReasonCode.POLICY_ERROR
     assert audit.events[0].reason_code == ReasonCode.POLICY_ERROR
+
+
+async def test_forward_sends_the_audited_correlation_id_to_the_vendor(opa_binary: str) -> None:
+    """ODIS-CC-01: one identifier correlates the governance checkpoint and the adapter.
+
+    Asserted as an identity, not as presence: an id that reached the vendor but differed
+    from the one on the trail would correlate nothing.
+    """
+    audit = factories.CapturingAuditSink()
+    family = factories.family()
+    vendor = factories.in_memory_vendor()
+    router = factories.router(family, vendor=vendor, opa_binary=opa_binary, audit=audit)
+
+    await router.forward("jira-prod", family, "update_issue", _ALLOWED_ARGS)
+
+    assert audit.event_types == ["odis.mcp.forward"]
+    forwarded = audit.events[0].correlation_id
+    uuid.UUID(forwarded)
+    assert vendor.correlation_ids == [forwarded]
+
+
+async def test_refused_call_is_audited_under_its_own_id_and_sends_nothing(
+    opa_binary: str,
+) -> None:
+    """A refusal never reaches the vendor, so it has no downstream half to join — but it is
+    still audited under the call's own id, which is what keeps a refused call and a
+    forwarded one separable in one trail.
+    """
+    audit = factories.CapturingAuditSink()
+    family = factories.family()
+    vendor = factories.in_memory_vendor()
+    router = factories.router(family, vendor=vendor, opa_binary=opa_binary, audit=audit)
+
+    with pytest.raises(McpRefusal):
+        await router.forward("jira-prod", family, "update_issue", _OUTSIDE_PROJECT_ARGS)
+    await router.forward("jira-prod", family, "update_issue", _ALLOWED_ARGS)
+
+    assert audit.event_types == ["odis.mcp.forward_refused", "odis.mcp.forward"]
+    refused, forwarded = (e.correlation_id for e in audit.events)
+    uuid.UUID(refused)
+    assert refused != forwarded, "each call mints its own id"
+    assert vendor.correlation_ids == [forwarded], "only the forwarded call reached the vendor"
+
+
+# Not slotted, unlike its parent: `slots=True` makes the dataclass decorator return a new
+# class object, which breaks zero-arg `super()`.
+@dataclass(frozen=True, kw_only=True)
+class _RecordingPolicyEvaluator(PolicyEvaluator):
+    """Records each `AuthzRequest` the Router builds, then evaluates it for real.
+
+    Wrapping the real evaluator rather than replacing it keeps the forward path intact,
+    so the recorded request is the one an allowed call actually policed on.
+    """
+
+    seen: list[AuthzRequest] = field(default_factory=list)
+
+    def evaluate(self, family: Family, request: AuthzRequest) -> PolicyDecision:
+        self.seen.append(request)
+        return super().evaluate(family, request)
+
+
+async def test_router_built_authz_request_validates_against_its_schema(
+    opa_binary: str,
+) -> None:
+    """Every field the Router puts in an `AuthzRequest` is one the schema declares.
+
+    Nothing in the forward path validates this envelope — `from_dict` is the only
+    validating constructor and the Router never calls it — so the schema is otherwise
+    enforced only against test-authored payloads. Round-tripping the Router's own output
+    through it is what makes a drift between emitter and schema fail: a field the Router
+    stops emitting breaks `required`, and one it starts emitting breaks
+    `additionalProperties: false`.
+    """
+    evaluator = _RecordingPolicyEvaluator(opa_binary=opa_binary)
+    family = factories.family()
+    router = factories.router(family, opa_binary=opa_binary, policy_evaluator=evaluator)
+
+    await router.forward("jira-prod", family, "update_issue", _ALLOWED_ARGS)
+
+    assert len(evaluator.seen) == 1, "the allowed call policed exactly once"
+    validator = EnvelopeValidator(default_schemas_dir())
+    payload = evaluator.seen[0].to_dict()
+    assert AuthzRequest.from_dict(payload, validator) == evaluator.seen[0]

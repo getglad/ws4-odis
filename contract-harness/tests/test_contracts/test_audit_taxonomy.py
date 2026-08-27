@@ -68,6 +68,7 @@ def test_odis_extension_types() -> None:
                 "odis.mcp.forward",
                 "odis.mcp.forward_refused",
                 "odis.mcp.discovery_failed",
+        "odis.bridge.terminal_exchange",
             }
         )
         == ODIS_EXTENSION_TYPES

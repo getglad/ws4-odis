@@ -50,15 +50,13 @@ from odis_harness.cli.settings import (
 from odis_harness.mcp_forwarder.oauth import OAuth2InteractiveConfig
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from mcp.server.auth.provider import TokenVerifier
 
-    from odis_harness.bundle import Family
-    from odis_harness.mcp_forwarder.vendor_client import McpClient
+    from odis_harness.cli.builders import VendorClientFactory
 
 
-def _serve_vendor_factory(settings: VendorAuthSettings) -> Callable[[Family], McpClient]:
+
+def _serve_vendor_factory(settings: VendorAuthSettings) -> VendorClientFactory:
     """Pick the leg-2 auth posture for `serve`.
 
     `--bridge` wires the fixture ODIS Bridge (a short-lived, audience-scoped token

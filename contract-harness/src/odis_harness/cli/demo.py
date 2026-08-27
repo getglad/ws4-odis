@@ -51,7 +51,7 @@ if TYPE_CHECKING:
     from mcp.server.auth.provider import TokenVerifier
 
     from odis_harness.audit.sink import AuditSink
-    from odis_harness.bundle import Family
+    from odis_harness.cli.builders import VendorClientContext
     from odis_harness.fixtures.issuer import FixtureIdentityIssuer
     from odis_harness.mcp_forwarder.router import Router
     from odis_harness.mcp_forwarder.vendor_client import McpClient
@@ -277,9 +277,9 @@ def _run_demo(settings: DemoSettings) -> int:
             from odis_harness.fixtures.issuer import FixtureIdentityIssuer  # noqa: PLC0415
             from odis_harness.mcp_forwarder.server import build_mcp_server  # noqa: PLC0415
             from odis_harness.mcp_forwarder.transports import (  # noqa: PLC0415
-                MCP_MOUNT_PATH,
                 build_asgi_app,
                 free_loopback_port,
+                mcp_url,
                 serving_http,
             )
 
@@ -294,7 +294,7 @@ def _run_demo(settings: DemoSettings) -> int:
                 token_verifier=verifier,
             )
             port = free_loopback_port()
-            url = f"http://127.0.0.1:{port}{MCP_MOUNT_PATH}"
+            url = mcp_url("127.0.0.1", port)
 
 
             print_banner(sys.stdout)
@@ -358,7 +358,7 @@ def demo(
     raise typer.Exit(_run_demo(settings))
 
 
-def _demo_vendor_factory(family: Family) -> McpClient:
+def _demo_vendor_factory(ctx: VendorClientContext) -> McpClient:
     """An in-process vendor stub seeded with the family's policed tools."""
     tools = [
         ToolDescriptor(
@@ -366,7 +366,7 @@ def _demo_vendor_factory(family: Family) -> McpClient:
             description=f"{tool} (demo vendor stub)",
             input_schema={"type": "object"},
         )
-        for tool in family.governed_tools()
+        for tool in ctx.family.governed_tools()
     ]
 
     def _respond(name: str, _arguments: dict[str, object]) -> ToolResult:

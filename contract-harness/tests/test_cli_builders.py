@@ -80,9 +80,9 @@ class _EstablishingClient:
         return [ToolDescriptor(name="update_issue", description="", input_schema={})]
 
     async def call_tool(
-        self, name: str, arguments: Mapping[str, Any]
+        self, name: str, arguments: Mapping[str, Any], *, correlation_id: str | None = None
     ) -> object:  # pragma: no cover - not exercised here
-        del name, arguments
+        del name, arguments, correlation_id
         raise NotImplementedError
 
 
@@ -103,9 +103,7 @@ async def test_establish_phase_is_resilient_and_primes_other_families() -> None:
         audit=audit_sink(),
         wiring=RouterWiring(
             context_factory=factories.context_factory(),
-            vendor_client_factory=lambda family: clients[
-                next(n for n, f in bundle.families_iter() if f is family)
-            ],
+            vendor_client_factory=lambda ctx: clients[ctx.family_name],
         ),
     )
 
@@ -129,7 +127,7 @@ async def test_establish_phase_is_noop_for_non_establishing_clients() -> None:
         audit=audit_sink(),
         wiring=RouterWiring(
             context_factory=factories.context_factory(),
-            vendor_client_factory=lambda _family: client,
+            vendor_client_factory=lambda _ctx: client,
         ),
     )
     assert router.bundle is bundle
@@ -193,10 +191,14 @@ async def test_bridged_client_emits_one_established_event_with_audience(
                 bearer="primed", expires_at=datetime.now(UTC) + timedelta(minutes=5)
             )
 
+    # An anchor is required to exchange at all, so one is supplied even though this test's
+    # subject is the established-event log rather than the exchange record — hence the
+    # builder's default discarding sink.
     auth = BridgeAuth(
         subject_token_provider=lambda: "agent-jwt",
         audience="https://vendor.example/mcp",
         exchanger=_Exchanger(),
+        anchor=factories.exchange_anchor(),
     )
     await establish_leg2_sessions(
         {"jira-prod": HttpMcpClient(url="http://127.0.0.1:9/mcp", auth=auth)}
@@ -248,7 +250,7 @@ async def test_caller_supplied_identity_seam_reaches_the_router() -> None:
                 workload_identity=FixtureWorkloadIdentityProvider(),
                 principal_provider=StubPrincipal(),
             ),
-            vendor_client_factory=lambda _family: factories.in_memory_vendor(),
+            vendor_client_factory=lambda _ctx: factories.in_memory_vendor(),
         ),
     )
 

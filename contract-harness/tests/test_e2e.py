@@ -27,8 +27,8 @@ from odis_harness.cli.builders import RouterWiring
 from odis_harness.fixtures.signature import FixtureSignatureVerifier
 from odis_harness.mcp_forwarder.server import build_mcp_server
 from odis_harness.mcp_forwarder.transports import (
-    MCP_MOUNT_PATH,
     build_asgi_app,
+    mcp_url,
     serving_http,
 )
 from odis_harness.mcp_forwarder.vendor_http import HttpMcpClient
@@ -40,7 +40,8 @@ if TYPE_CHECKING:
 
     from starlette.applications import Starlette
 
-    from odis_harness.bundle import Family
+    from odis_harness.cli.builders import VendorClientContext
+
 
 pytestmark = [pytest.mark.enable_socket, pytest.mark.requires_opa]
 
@@ -69,8 +70,8 @@ families:
 """
 
 
-def _http_vendor_factory(family: Family) -> HttpMcpClient:
-    return HttpMcpClient(url=family.vendor_mcp.url)
+def _http_vendor_factory(ctx: VendorClientContext) -> HttpMcpClient:
+    return HttpMcpClient(url=ctx.family.vendor_mcp.url)
 
 
 def _vendor_app() -> Starlette:
@@ -105,7 +106,7 @@ async def test_e2e_full_chain_allow_and_deny(tmp_path: Path, opa_binary: str) ->
 
     bundle_path = tmp_path / "bundle.yaml"
     bundle_path.write_text(
-        _BUNDLE_TEMPLATE.format(vendor_url=f"http://127.0.0.1:{vendor_port}{MCP_MOUNT_PATH}"),
+        _BUNDLE_TEMPLATE.format(vendor_url=mcp_url("127.0.0.1", vendor_port)),
         encoding="utf-8",
     )
 
@@ -126,7 +127,7 @@ async def test_e2e_full_chain_allow_and_deny(tmp_path: Path, opa_binary: str) ->
         )
         server = build_mcp_server(router, requires_authenticated_caller=False)
         async with serving_http(build_asgi_app(server), port=router_port):
-            url = f"http://127.0.0.1:{router_port}{MCP_MOUNT_PATH}"
+            url = mcp_url("127.0.0.1", router_port)
             async with (
                 streamable_http_client(url) as (read, write, _sid),
                 ClientSession(read, write) as client,

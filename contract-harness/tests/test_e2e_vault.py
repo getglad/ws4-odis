@@ -30,10 +30,9 @@ from odis_harness.mcp_forwarder.vendor_client import (
 from tests import factories
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
-    from odis_harness.bundle import Bundle, Family
+    from odis_harness.bundle import Bundle
     from odis_harness.bundle.vault_client import VaultBundleClient
+    from odis_harness.cli.builders import VendorClientContext, VendorClientFactory
     from odis_harness.contracts.envelopes import AuthzRequest
     from odis_harness.vault.dev import DevVaultContext
 
@@ -123,15 +122,15 @@ def _write_gitlab_readonly_mapping(dev_vault: DevVaultContext) -> None:
 
 def _vault_union_vendor_factory(
     clients_by_endpoint: dict[str, InMemoryMcpClient],
-) -> Callable[[Family], McpClient]:
-    def _factory(family: Family) -> McpClient:
+) -> VendorClientFactory:
+    def _factory(ctx: VendorClientContext) -> McpClient:
         tools = [
             ToolDescriptor(
                 name=tool,
                 description=f"{tool} (vault union test stub)",
                 input_schema={"type": "object"},
             )
-            for tool in family.governed_tools()
+            for tool in ctx.family.governed_tools()
         ]
         client = InMemoryMcpClient(
             tools=tools,
@@ -144,7 +143,7 @@ def _vault_union_vendor_factory(
                 ),
             },
         )
-        clients_by_endpoint[family.vendor_mcp.endpoint_id] = client
+        clients_by_endpoint[ctx.family.vendor_mcp.endpoint_id] = client
         return client
 
     return _factory

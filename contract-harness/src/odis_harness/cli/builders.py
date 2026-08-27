@@ -12,6 +12,7 @@ import asyncio
 import os
 import shutil
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -22,7 +23,11 @@ from odis_harness.audit.sink import AuditSink
 from odis_harness.bundle import (
     BundleLoader,
 )
-from odis_harness.bundle.loader import BundleSchemaInvalid, BundleSignatureInvalid
+from odis_harness.bundle.loader import (
+    BundleExpired,
+    BundleSchemaInvalid,
+    BundleSignatureInvalid,
+)
 from odis_harness.contracts import EnvelopeValidator
 from odis_harness.fixtures.identity import (
     FixtureOriginatingPrincipalProvider,
@@ -41,11 +46,12 @@ from odis_harness.mcp_forwarder.vendor_http import HttpMcpClient
 from odis_harness.paths import default_schemas_dir
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping
+    from collections.abc import Mapping
     from contextlib import ExitStack
     from typing import TextIO
 
     from odis_harness.bridge import TokenExchanger
+    from odis_harness.bridge.audit import ExchangeAuditAnchor
     from odis_harness.bundle import Bundle, Family, SignatureVerifier
     from odis_harness.bundle.vault_client import VaultBundleClient
     from odis_harness.cli.settings import SignedBundleSettings
@@ -274,6 +280,30 @@ def audit_stream(value: str, stack: ExitStack) -> TextIO:
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
+class VendorClientContext:
+    """Everything a vendor factory needs that the family alone does not carry.
+
+    A plain `HttpMcpClient` needs only its `Family`. A factory that anchors the
+    credential it mints (ODIS-CC-06) also needs the grant in force and the sink to
+    record against, and those are known only to `build_router_from_bundle`: the
+    factory itself is built from CLI settings before any bundle is loaded. Passing
+    them as one frozen argument keeps that ordering honest — a client cannot be
+    constructed without the context, so it cannot mint before the grant is in force.
+    """
+
+    family_name: str
+    family: Family
+    bundle: Bundle
+    audit: AuditSink
+
+
+#: What `RouterWiring.vendor_client_factory` is. Named because it appears in the
+#: wiring type, in every `make_*_vendor_factory` return type, and in the test
+#: doubles, and a change to the context should have one place to land.
+VendorClientFactory = Callable[[VendorClientContext], McpClient]
+
+
+@dataclass(frozen=True, kw_only=True, slots=True)
 class RouterWiring:
     """The two boundaries the Router needs that an Authority Grant does not supply.
 
@@ -288,7 +318,7 @@ class RouterWiring:
     """
 
     context_factory: RuntimeContextFactory
-    vendor_client_factory: Callable[[Family], McpClient]
+    vendor_client_factory: VendorClientFactory
 
 
 def stub_context_factory() -> RuntimeContextFactory:
@@ -339,8 +369,21 @@ async def build_router_from_bundle(
     """Build a vendor client per family, populate discovery, and construct the
     Router from an already-loaded `Bundle` — independent of the bundle's source
     (a file via `build_router`, or a Vault-issued bundle via `load_signed`)."""
+    # Before any client is built: a factory on a minting posture performs an RFC 8693
+    # exchange during `establish_leg2_sessions`, so an expired grant would mint and cache
+    # a live bearer — and anchor it against a grant that confers nothing — before the
+    # first forward could refuse. The Router re-checks per call; this is the boot half.
+    if bundle.expired():
+        message = "Authority Grant has expired; it confers nothing"
+        raise BundleExpired(message)
+
     clients: dict[str, McpClient] = {
-        name: wiring.vendor_client_factory(family) for name, family in bundle.families_iter()
+        name: wiring.vendor_client_factory(
+            VendorClientContext(
+                family_name=name, family=family, bundle=bundle, audit=audit
+            )
+        )
+        for name, family in bundle.families_iter()
     }
     await establish_leg2_sessions(clients)
     discovery = DiscoveryCache()
@@ -464,12 +507,31 @@ async def build_router_signed(
     )
 
 
-def http_vendor_factory(family: Family) -> McpClient:
+def http_vendor_factory(ctx: VendorClientContext) -> McpClient:
     # No Router→vendor credential in the harness (Secret-Zero): `auth`
     # stays None. Production constructs a short-lived, audience-scoped provider here
     # — for live smoke tests, the SDK OAuth authorization-code/PKCE provider;
     # for production, Bridge-backed token exchange — never a static token.
-    return HttpMcpClient(url=family.vendor_mcp.url)
+    return HttpMcpClient(url=ctx.family.vendor_mcp.url)
+
+
+def _anchor_for(ctx: VendorClientContext) -> ExchangeAuditAnchor:
+    """The ODIS-CC-06 audit anchor for one target.
+
+    One anchor per family: the record names the target it was minted for. The
+    whole `Bundle` goes in rather than the four fields it stamps, so the record
+    cannot disagree with the grant in force.
+    """
+    # Lazy: keeps the Bridge off the plain `demo` / `serve` import path, which
+    # mints nothing and needs no anchor.
+    from odis_harness.bridge.audit import ExchangeAuditAnchor  # noqa: PLC0415
+
+    return ExchangeAuditAnchor(
+        audit=ctx.audit,
+        bundle=ctx.bundle,
+        target_endpoint_id=ctx.family.vendor_mcp.endpoint_id,
+        family_name=ctx.family_name,
+    )
 
 
 def _vendor_audience(family: Family) -> str:
@@ -483,7 +545,7 @@ def _vendor_audience(family: Family) -> str:
 
 def make_oauth2_http_vendor_factory(
     config: OAuth2InteractiveConfig,
-) -> Callable[[Family], McpClient]:
+) -> VendorClientFactory:
     """Build a vendor factory using interactive OAuth2 authorization-code/PKCE.
 
     No caller-supplied bearer or pre-provisioned client secret is accepted: the
@@ -491,16 +553,19 @@ def make_oauth2_http_vendor_factory(
     tokens from the authorization server.
     """
     from odis_harness.mcp_forwarder.oauth import (  # noqa: PLC0415
-        InMemoryOAuthTokenStorage,
+        AnchoredOAuthTokenStorage,
         make_interactive_oauth2_auth,
     )
 
-    def _factory(family: Family) -> McpClient:
+    def _factory(ctx: VendorClientContext) -> McpClient:
+        # The SDK mints and refreshes the Target-MCP credential inside its own
+        # provider, so the only place the harness sees it is the token store.
+        # Anchoring there is what makes ODIS-CC-06 hold on this leg.
         return HttpMcpClient(
-            url=family.vendor_mcp.url,
+            url=ctx.family.vendor_mcp.url,
             auth=make_interactive_oauth2_auth(
-                server_url=family.vendor_mcp.url,
-                storage=InMemoryOAuthTokenStorage(),
+                server_url=ctx.family.vendor_mcp.url,
+                storage=AnchoredOAuthTokenStorage(anchor=_anchor_for(ctx)),
                 config=config,
             ),
         )
@@ -512,7 +577,7 @@ def make_bridged_http_vendor_factory(
     *,
     exchanger: TokenExchanger,
     subject_token_provider: Callable[[], str],
-) -> Callable[[Family], McpClient]:
+) -> VendorClientFactory:
     """Build a vendor factory whose `HttpMcpClient`s carry a `BridgeAuth` leg-2 auth.
 
     Each client gets a `BridgeAuth` that exchanges the agent's workload identity (via
@@ -526,20 +591,21 @@ def make_bridged_http_vendor_factory(
     # vault verifier in build_router_signed).
     from odis_harness.bridge import BridgeAuth  # noqa: PLC0415
 
-    def _factory(family: Family) -> McpClient:
+    def _factory(ctx: VendorClientContext) -> McpClient:
         return HttpMcpClient(
-            url=family.vendor_mcp.url,
+            url=ctx.family.vendor_mcp.url,
             auth=BridgeAuth(
                 subject_token_provider=subject_token_provider,
-                audience=_vendor_audience(family),
+                audience=_vendor_audience(ctx.family),
                 exchanger=exchanger,
+                anchor=_anchor_for(ctx),
             ),
         )
 
     return _factory
 
 
-def make_fixture_bridged_http_vendor_factory() -> Callable[[Family], McpClient]:
+def make_fixture_bridged_http_vendor_factory() -> VendorClientFactory:
     """A bridged vendor factory wired with the fixture Bridge (the `--bridge` default).
 
     Stands up a `FixtureTokenExchanger` (the in-process RFC 7523/8693 broker stand-in)
