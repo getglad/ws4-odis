@@ -10,6 +10,7 @@ from odis_harness.mcp_forwarder.reason_codes import ReasonCode
 @pytest.mark.parametrize(
     ("member", "wire_value"),
     [
+        (ReasonCode.GRANT_EXPIRED, "grant_expired"),
         (ReasonCode.UNPOLICED_TOOL, "unpoliced_tool"),
         (ReasonCode.DENY, "deny"),
         (ReasonCode.POLICY_ERROR, "policy_error"),
@@ -41,6 +42,7 @@ def test_vocabulary_is_exactly_the_documented_set() -> None:
     list; this is the test that makes that instruction load-bearing.
     """
     assert {r.value for r in ReasonCode} == {
+        "grant_expired",
         "unpoliced_tool",
         "deny",
         "policy_error",

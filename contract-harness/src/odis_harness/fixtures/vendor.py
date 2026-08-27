@@ -40,6 +40,10 @@ class InMemoryMcpClient:
     #: Captured calls for test assertions. Populated by `call_tool` BEFORE
     #: any exception is raised so tests can observe attempted-but-failed calls.
     calls: list[tuple[str, Mapping[str, Any]]] = field(default_factory=list)
+    #: The trace id the Router passed with each call, in step with `calls`. Recorded
+    #: rather than discarded so a test can assert the Router propagates it; there is no
+    #: transport here to carry it downstream.
+    correlation_ids: list[str | None] = field(default_factory=list)
 
     async def list_tools(self) -> list[ToolDescriptor]:
         if self.unreachable:
@@ -47,9 +51,16 @@ class InMemoryMcpClient:
             raise VendorUnreachable(message)
         return list(self.tools)
 
-    async def call_tool(self, name: str, arguments: Mapping[str, Any]) -> ToolResult:
+    async def call_tool(
+        self,
+        name: str,
+        arguments: Mapping[str, Any],
+        *,
+        correlation_id: str | None = None,
+    ) -> ToolResult:
         # Record before any raise so tests can observe attempted-but-failed calls.
         self.calls.append((name, dict(arguments)))
+        self.correlation_ids.append(correlation_id)
         if self.unreachable:
             message = "vendor in-memory client configured as unreachable"
             raise VendorUnreachable(message)

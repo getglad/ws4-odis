@@ -55,7 +55,7 @@ _CORRELATION_ID = "00000000-0000-4000-8000-000000000001"
 
 
 def _forward_event(
-    *, mode: ForwardMode = "policy_allow", decision_id: str | None = "dec-1"
+    *, mode: ForwardMode = ForwardMode.POLICY_ALLOW, decision_id: str | None = "dec-1"
 ) -> AuditEvent:
     sink = factories.CapturingAuditSink()
     audit_forward(
@@ -114,7 +114,7 @@ def test_audit_forward_shape_and_redaction() -> None:
 
 
 def test_audit_forward_permissive_shape() -> None:
-    event = _forward_event(mode="permissive", decision_id=None)
+    event = _forward_event(mode=ForwardMode.PERMISSIVE, decision_id=None)
     extra = event.extra or {}
     assert extra["mode"] == "permissive"
     assert extra["decision_id"] is None
@@ -168,7 +168,7 @@ def test_events_name_the_loaded_grant_not_the_fixture_defaults() -> None:
         family=factories.family(),
         tool="update_issue",
         decision_id="dec-1",
-        mode="policy_allow",
+        mode=ForwardMode.POLICY_ALLOW,
         runtime_context=factories.runtime_context(),
     )
     audit_refused(
@@ -214,3 +214,13 @@ def test_handler_refusal_has_no_actor_and_claims_no_enforcement() -> None:
     assert event.user_id is None
     assert event.resource_family is None
     assert json.loads(sink.output.getvalue())["apf_semantic_enforcement"] is False
+
+
+def test_forward_mode_serializes_as_its_bare_wire_string() -> None:
+    """`extra.mode` is read outside this repo, so the members are transcribed here rather
+    than read off `.value` — the latter asserts only that the enum equals itself."""
+    assert {m.value for m in ForwardMode} == {"policy_allow", "permissive"}
+    event = _forward_event()
+    assert json.loads(
+        json.dumps({"mode": (event.extra or {})["mode"]})
+    ) == {"mode": "policy_allow"}

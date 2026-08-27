@@ -17,6 +17,9 @@ from enum import StrEnum
 class ReasonCode(StrEnum):
     """Why a call was refused. Ordered by where it arises in the forward path."""
 
+    #: The Authority Grant's `expires_at` has passed. It confers nothing, so every
+    #: call is refused regardless of the tool or the policy.
+    GRANT_EXPIRED = "grant_expired"
     #: The bundle governs this family but declares no policy for this tool, and the
     #: family is `strict`.
     UNPOLICED_TOOL = "unpoliced_tool"

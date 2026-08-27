@@ -13,12 +13,22 @@ from __future__ import annotations
 
 from odis_harness.bundle.digest import policy_digest
 from odis_harness.bundle.loader import (
+    BundleExpired,
     BundleLoader,
     BundleSchemaInvalid,
     BundleSignatureInvalid,
     SignatureVerifier,
 )
-from odis_harness.bundle.types import Bundle, DefaultMode, Family, ToolPolicy, VendorMcp
+from odis_harness.bundle.types import (
+    AttenuationProfileRef,
+    Bundle,
+    DefaultMode,
+    EgressMode,
+    Family,
+    MappingRecordRef,
+    ToolPolicy,
+    VendorMcp,
+)
 from odis_harness.bundle.vault_client import (
     SignedBundle,
     VaultBundleClient,
@@ -30,12 +40,16 @@ from odis_harness.bundle.vault_verifier import (
 )
 
 __all__ = [
+    "AttenuationProfileRef",
     "Bundle",
+    "BundleExpired",
     "BundleLoader",
     "BundleSchemaInvalid",
     "BundleSignatureInvalid",
     "DefaultMode",
+    "EgressMode",
     "Family",
+    "MappingRecordRef",
     "NonEd25519PublicKeyError",
     "SignatureVerifier",
     "SignedBundle",

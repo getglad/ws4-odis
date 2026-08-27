@@ -36,7 +36,7 @@ _LOGIN_MOUNT = "jwt"
 _LOGIN_ROLE = "router"
 _ISSUE_PATH = "apf/issue"
 _WORKLOAD_JWT = "eyJ.workload.jwt"
-_CLIENT_TOKEN = "s.deadbeefclienttoken"  # noqa: S105 — fixture token, not a secret
+_CLIENT_TOKEN = "s.deadbeefclienttoken"
 
 #: A small canonical bundle JSON the issuer would sign — the payload that
 #: `BundleLoader.load_signed` consumes downstream.

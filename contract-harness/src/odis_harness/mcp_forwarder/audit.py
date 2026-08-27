@@ -20,7 +20,8 @@ the stable endpoint id from the bundle so URL changes don't break the trail.
 from __future__ import annotations
 
 import uuid
-from typing import TYPE_CHECKING, Literal
+from enum import StrEnum
+from typing import TYPE_CHECKING
 
 from odis_harness.contracts import AuditEvent, now_iso
 from odis_harness.mcp_forwarder.reason_codes import ReasonCode
@@ -34,7 +35,19 @@ if TYPE_CHECKING:
     from odis_harness.mcp_forwarder.identity import CallerIdentity
 
 
-ForwardMode = Literal["policy_allow", "permissive"]
+class ForwardMode(StrEnum):
+    """How a forwarded call was authorized, as recorded in `extra.mode`.
+
+    A `StrEnum` for the same reason `ReasonCode` and `bridge.audit.ExchangeTrigger` are:
+    a closed set of wire strings on an audit event, so one way of modelling it across the
+    harness. Members serialize as the bare string a log pipeline keys on.
+    """
+
+    #: The RPV evaluated a policy for this tool and returned allow.
+    POLICY_ALLOW = "policy_allow"
+    #: No policy governs this tool and the family is `permissive`, so nothing was
+    #: evaluated. `decision_id` is `None` on these events.
+    PERMISSIVE = "permissive"
 
 
 def audit_forward(  # noqa: PLR0913 - audit event has many independent kw-only fields
@@ -52,7 +65,7 @@ def audit_forward(  # noqa: PLR0913 - audit event has many independent kw-only f
     """Emit `odis.mcp.forward` for a successful (or permissive) forward.
 
     `decision_id` is the RPV decision that authorized the call for
-    `mode="policy_allow"`; `None` when the call was a permissive-mode
+    `ForwardMode.POLICY_ALLOW`; `None` when the call was a permissive-mode
     passthrough (no policy was evaluated).
     """
     audit.emit(
@@ -92,8 +105,8 @@ def audit_refused(  # noqa: PLR0913 - audit event has many independent kw-only f
 ) -> None:
     """Emit `odis.mcp.forward_refused` with a structured reason_code.
 
-    The vocabulary is `ReasonCode` — iterate it rather than maintaining a list here,
-    which is how the previous enumeration in this docstring came to omit two members.
+    `ReasonCode` is the vocabulary; iterate it rather than restating its members here,
+    because a list in prose drifts from the enum without anything failing.
     """
     audit.emit(
         AuditEvent(

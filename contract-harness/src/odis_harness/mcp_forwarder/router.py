@@ -25,7 +25,7 @@ from odis_harness.mcp_forwarder.action_limits import (
     ActionLimitViolation,
     enforce_action_limits,
 )
-from odis_harness.mcp_forwarder.audit import audit_forward, audit_refused
+from odis_harness.mcp_forwarder.audit import ForwardMode, audit_forward, audit_refused
 from odis_harness.mcp_forwarder.identity import CallerIdentity
 from odis_harness.mcp_forwarder.policy import Decision
 from odis_harness.mcp_forwarder.reason_codes import ReasonCode
@@ -160,8 +160,16 @@ class Router:
         arguments: Mapping[str, Any],
         runtime_context: RuntimeContext,
     ) -> ToolResult:
-        """The gate itself: policed-tool check, policy, action limits, forward."""
+        """The gate itself: grant window, policed-tool check, policy, action limits, forward."""
         correlation_id = runtime_context.correlation_id
+
+        # The grant's validity window bounds everything downstream, so it is checked
+        # before the policed-tool branch — a permissive family forwards with no policy
+        # evaluation at all, and an expired grant must not reach that path either.
+        # A grant declaring no expiry never expires; see `Bundle.expired`.
+        if self.bundle.expired():
+            self._refuse(runtime_context, family_name, tool, ReasonCode.GRANT_EXPIRED)
+
         has_policy = family.governs_tool(tool)
         if not has_policy:
             if family.default_mode == "permissive":
@@ -215,7 +223,7 @@ class Router:
             family=family,
             tool=tool,
             decision_id=decision.decision_id,
-            mode="policy_allow",
+            mode=ForwardMode.POLICY_ALLOW,
             runtime_context=runtime_context,
         )
         return result
@@ -242,7 +250,7 @@ class Router:
             family=family,
             tool=tool,
             decision_id=None,
-            mode="permissive",
+            mode=ForwardMode.PERMISSIVE,
             runtime_context=runtime_context,
         )
         return result
@@ -257,7 +265,11 @@ class Router:
         runtime_context: RuntimeContext,
     ) -> ToolResult:
         try:
-            return await self.vendor_clients[family_name].call_tool(tool, arguments)
+            # The call's trace id crosses the vendor leg, so one identifier spans the
+            # agent, the gate, and the downstream service (ODIS-CC-01).
+            return await self.vendor_clients[family_name].call_tool(
+                tool, arguments, correlation_id=runtime_context.correlation_id
+            )
         except VendorUnreachable:
             self._refuse(runtime_context, family_name, tool, ReasonCode.VENDOR_UNREACHABLE)
 
@@ -273,6 +285,13 @@ class Router:
             subject={
                 "originating_principal": dict(runtime_context.originating_principal),
                 "agent": dict(runtime_context.agent),
+                # Empty unconditionally, and true unconditionally: this Router
+                # delegates to no sub-agent in either bundle mode, so a call never
+                # arrives through parent hops. An explicit [] asserts single-hop where
+                # an absent field asserts nothing — and it is a structural property of
+                # this implementation, not something the grant tells us, so it is not
+                # sourced from the bundle (the claim holds identically for a local one).
+                "delegation_chain": [],
             },
             target_resource={"resource_family": family_name},
             verb=tool,

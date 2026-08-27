@@ -19,7 +19,14 @@ import yaml
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import ValidationError
 
-from odis_harness.bundle.types import Bundle, Family, ToolPolicy, VendorMcp
+from odis_harness.bundle.types import (
+    AttenuationProfileRef,
+    Bundle,
+    Family,
+    MappingRecordRef,
+    ToolPolicy,
+    VendorMcp,
+)
 from odis_harness.paths import default_schemas_dir
 
 if TYPE_CHECKING:
@@ -44,6 +51,14 @@ class BundleSignatureInvalid(RuntimeError):  # noqa: N818 - reads clearer than t
 
 class BundleSchemaInvalid(RuntimeError):  # noqa: N818 - reads clearer than the Error suffix
     """The bundle's structure violates the JSON Schema (or the file isn't parseable). Terminal."""
+
+
+class BundleExpired(RuntimeError):  # noqa: N818 - reads clearer than the Error suffix
+    """The grant's validity window has closed, so it confers nothing. Terminal.
+
+    Distinct from a schema or signature failure: the payload is well-formed and
+    authentically signed, it has simply stopped granting anything.
+    """
 
 
 class SignatureVerifier(Protocol):
@@ -156,11 +171,16 @@ def _build_bundle(parsed: dict[str, Any]) -> Bundle:
     families: dict[str, Family] = {}
     for name, family_dict in parsed["families"].items():
         vendor_dict = family_dict["vendor_mcp"]
+        vendor_kwargs: dict[str, Any] = {
+            "endpoint_id": vendor_dict["endpoint_id"],
+            "url": vendor_dict["url"],
+        }
+        # Omitted rather than passed as None: the dataclass default is the
+        # declaration a document that names no mode inherits.
+        if "egress_mode" in vendor_dict:
+            vendor_kwargs["egress_mode"] = vendor_dict["egress_mode"]
         families[name] = Family(
-            vendor_mcp=VendorMcp(
-                endpoint_id=vendor_dict["endpoint_id"],
-                url=vendor_dict["url"],
-            ),
+            vendor_mcp=VendorMcp(**vendor_kwargs),
             policy=family_dict["policy"],
             tools={
                 tool_name: ToolPolicy(action_limits=dict(tool_dict.get("action_limits", {})))
@@ -173,10 +193,31 @@ def _build_bundle(parsed: dict[str, Any]) -> Bundle:
         bundle_version=parsed["bundle_version"],
         trust_root_id=parsed["trust_root_id"],
         families=families,
+        actor=parsed.get("actor"),
+        originating_principal=parsed.get("originating_principal"),
+        contributing_records=tuple(
+            MappingRecordRef(name=r["name"], version=r["version"], digest=r["digest"])
+            for r in parsed.get("contributing_records", ())
+        ),
+        # Absent stays None (an unissued grant asserts nothing); a present chain
+        # becomes a tuple, and `Bundle` refuses it if it claims a hop.
+        delegation_chain=(
+            None if (chain := parsed.get("delegation_chain")) is None else tuple(chain)
+        ),
+        attenuation_profile_ref=_build_attenuation_ref(parsed.get("attenuation_profile_ref")),
+        issued_at=parsed.get("issued_at"),
+        expires_at=parsed.get("expires_at"),
     )
 
 
+def _build_attenuation_ref(raw: dict[str, Any] | None) -> AttenuationProfileRef | None:
+    if raw is None:
+        return None
+    return AttenuationProfileRef(uri=raw["uri"], digest=raw["digest"])
+
+
 __all__ = [
+    "BundleExpired",
     "BundleLoader",
     "BundleSchemaInvalid",
     "BundleSignatureInvalid",

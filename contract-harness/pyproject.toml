@@ -93,6 +93,7 @@ ignore = [
 ]
 "tests/**/*.py" = [
     "S101",    # assert allowed in tests
+    "S105",    # fixture token literals; naming them *_TOKEN is what makes the test readable
     "S106",    # hardcoded passwords in fixtures
     "ANN",     # type annotations relaxed in tests
     "ARG",     # unused args (fixtures)
